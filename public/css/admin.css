@@ -1,0 +1,80 @@
+/* 管理画面・ランキング・カード印刷 */
+body.admin { overflow: auto; user-select: text; -webkit-user-select: text; }
+.admin-wrap { max-width: 1280px; margin: 0 auto; padding: 16px 20px 60px; }
+.admin-head { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+.admin-head h1 { font-size: 26px; margin: 0; color: var(--gold); }
+.tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.tabs button { padding: 10px 18px; border-radius: 10px; border: 1px solid var(--line); background: #1a2135; color: var(--text); font-size: 16px; cursor: pointer; font-weight: 700; }
+.tabs button.on { background: var(--gold); color: #1a1305; }
+.grid2 { display: grid; grid-template-columns: 380px 1fr; gap: 16px; align-items: start; }
+.admin .panel { padding: 16px; box-shadow: none; }
+.admin h2 { font-size: 20px; margin-bottom: 10px; }
+.admin input, .admin select { font-size: 16px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: #0d1220; color: var(--text); }
+.admin input:focus { outline: 2px solid var(--gold); }
+.admin .btn { font-size: 15px; padding: 9px 14px; }
+.admin table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.admin th, .admin td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.admin th { color: var(--muted); font-weight: 600; position: sticky; top: 0; background: #141a2b; }
+.admin tr.reverted td { text-decoration: line-through; opacity: .5; }
+.admin tr.clickable { cursor: pointer; }
+.admin tr.clickable:hover td { background: rgba(255,255,255,.05); }
+.scroll { max-height: 520px; overflow: auto; }
+.kv { display: grid; grid-template-columns: 130px 1fr; gap: 6px 10px; font-size: 16px; margin-bottom: 12px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-weight: 700; }
+.big-chips { font-size: 40px; font-weight: 900; color: var(--gold); }
+.mini-scan { width: 100%; aspect-ratio: 4 / 3; background: #000; border-radius: 10px; overflow: hidden; position: relative; }
+.mini-scan video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.mini-scan .nocam { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); padding: 10px; text-align: center; font-size: 14px; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.note { font-size: 13px; color: var(--muted); }
+.login-box { max-width: 380px; margin: 120px auto; text-align: center; }
+.stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.stat-cards .panel b { display: block; font-size: 30px; color: var(--gold); }
+
+/* ---------- ランキング ---------- */
+body.ranking { overflow: hidden; }
+.rank-wrap { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr auto; padding: 2vh 3vw; gap: 2vh; }
+.rank-head { display: flex; align-items: baseline; gap: 2vw; }
+.rank-head h1 { font-size: 5vh; margin: 0; color: var(--gold); text-shadow: 0 0 20px rgba(246,196,83,.5); letter-spacing: .05em; }
+.rank-head .stats { font-size: 2.4vh; color: var(--muted); }
+.rank-head .stats b { color: var(--text); font-size: 3vh; }
+.rank-body { display: grid; grid-template-columns: 1.3fr 1fr; gap: 2vw; min-height: 0; }
+.rank-list { display: flex; flex-direction: column; gap: 0.8vh; min-height: 0; }
+.rank-row { display: grid; grid-template-columns: 6vh 1fr auto; align-items: center; gap: 1.5vw; padding: 0.9vh 1.5vw; border-radius: 1.2vh; background: rgba(255,255,255,.05); font-size: 3.2vh; }
+.rank-row .no { font-family: var(--num); font-weight: 900; text-align: center; }
+.rank-row .name { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-row .pk { font-family: var(--num); font-weight: 900; color: var(--gold); }
+.rank-row .pk small { font-size: 0.55em; color: var(--muted); margin-left: .3em; }
+.rank-row.r1 { background: linear-gradient(90deg, rgba(246,196,83,.45), rgba(246,196,83,.08)); font-size: 4.4vh; }
+.rank-row.r2 { background: linear-gradient(90deg, rgba(200,210,230,.35), rgba(255,255,255,.05)); font-size: 3.8vh; }
+.rank-row.r3 { background: linear-gradient(90deg, rgba(205,127,50,.4), rgba(255,255,255,.05)); font-size: 3.5vh; }
+.rank-row.new { animation: glow 2s ease; }
+@keyframes glow { 0% { box-shadow: 0 0 0 3px var(--green), 0 0 30px var(--green); } 100% { box-shadow: none; } }
+.rank-sub { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6vh 1.5vw; align-content: start; }
+.rank-sub .rank-row { font-size: 2.3vh; padding: 0.6vh 1vw; grid-template-columns: 4vh 1fr auto; }
+.rank-side { display: flex; flex-direction: column; gap: 2vh; min-height: 0; }
+.rank-side h2 { font-size: 2.8vh; margin: 0 0 1vh; color: var(--muted); }
+.feed div { font-size: 2.3vh; padding: 0.6vh 0; border-bottom: 1px solid var(--line); }
+.feed b { color: var(--green); font-family: var(--num); }
+.rank-foot { font-size: 2vh; color: var(--muted); display: flex; justify-content: space-between; }
+.empty { font-size: 3vh; color: var(--muted); text-align: center; padding: 6vh; }
+
+/* ---------- カード印刷 ---------- */
+body.cards-print { overflow: auto; background: #ddd; color: #111; user-select: text; }
+.print-controls { padding: 12px 20px; background: #222; color: #fff; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }
+.print-controls input { width: 90px; font-size: 16px; padding: 6px; }
+.sheet { width: 210mm; min-height: 297mm; margin: 10mm auto; background: #fff; padding: 11mm 14mm; display: grid; grid-template-columns: repeat(2, 91mm); grid-auto-rows: 55mm; gap: 0; justify-content: center; align-content: start; page-break-after: always; break-after: page; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
+.qcard { border: 0.2mm dashed #999; padding: 3.5mm 4mm; display: grid; grid-template-columns: 30mm 1fr; gap: 3mm; align-items: center; font-family: var(--font); }
+.qcard .qr svg { width: 30mm; height: 30mm; display: block; }
+.qcard .t { font-size: 4.2mm; font-weight: 900; letter-spacing: .05em; }
+.qcard .id { font-size: 6.5mm; font-weight: 900; font-family: var(--num); letter-spacing: .05em; }
+.qcard .code { font-size: 3mm; color: #444; font-family: var(--num); }
+.qcard .info { font-size: 2.5mm; line-height: 1.45; color: #333; margin-top: 1mm; }
+.qcard .suits { font-size: 3.4mm; color: #c00; }
+@media print {
+  body.cards-print { background: #fff; }
+  .print-controls { display: none; }
+  .sheet { margin: 0; box-shadow: none; }
+  @page { size: A4; margin: 0; }
+}

@@ -44,6 +44,15 @@ const server = app.listen(cfg.server.port, '0.0.0.0', () => {
   console.log(line);
 });
 
+server.on('error', (e) => {
+  if (e.code === 'EADDRINUSE') {
+    console.error(`[エラー] ポート ${cfg.server.port} は使用中です。サーバーが既に起動していないか確認してください。`);
+  } else {
+    console.error('[エラー] サーバーを起動できません:', e.message);
+  }
+  process.exit(1);
+});
+
 function shutdown() {
   console.log('\n終了します。最終バックアップを作成中...');
   autoBackup();
@@ -53,3 +62,4 @@ function shutdown() {
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+process.on('SIGHUP', shutdown); // Windows でコンソールを閉じたとき
