@@ -1,6 +1,6 @@
 // ゲーム端末のメイン（画面遷移・セッション・無操作タイムアウト）
 import { api, ApiError, terminalId } from './api.js';
-import { el, clear, fmt, signed, multLabel, toast, countUp, confetti, sleep } from './ui.js';
+import { el, clear, fmt, signed, multLabel, toast, countUp, confetti, coinShower, sleep, showOverlay } from './ui.js';
 import { sound } from './sound.js';
 import { QrScanner } from './qr.js';
 import { betRange } from './lib/settle.js';
@@ -21,6 +21,9 @@ const state = {
   round: null, // { roundId, game, bet, leverage }
   cleanup: null,
   lastBet: {}, // gameId -> { bet, leverage }
+  gameOptions: {}, // gameId -> ゲームごとの設定（大富豪のローカルルールなど）
+  introSeen: {}, // gameId -> ルール説明を見たか（プレイヤーごと）
+  currentGame: null,
   lastInput: Date.now(),
   idleOverlay: null,
   heartbeat: null,
@@ -54,6 +57,10 @@ function renderTopbar(extra) {
   }
   items.push(el('div.spacer'));
   if (extra) items.push(extra);
+  const g = state.currentGame;
+  if (state.inGame && g && g.intro) {
+    items.push(el('button.btn.small.blue', { on: { click: () => showRules(g) } }, '📖 ルール'));
+  }
   items.push(muteBtn);
   if (p && !['standby', 'losscut'].includes(state.screen) && !state.inGame) {
     items.push(el('button.btn.secondary.small', { on: { click: () => endSession() } }, 'おわる'));
@@ -86,6 +93,8 @@ async function endSession() {
 
 function resetToStandby() {
   api.session = null;
+  state.introSeen = {};
+  state.gameOptions = {};
   state.player = null;
   state.inGame = false;
   state.round = null;
@@ -183,8 +192,10 @@ function showStandby() {
     style: { left: (i * 13 + 4) + '%', top: (i % 2 ? 15 : 70) + '%', animationDelay: i * 0.7 + 's' },
   }, ['♠', '♥', '♦', '♣'][i % 4]));
 
+  const decoChips = [['8%', '62%', '#c4213a', '0s'], ['84%', '18%', '#1f6fd1', '1.5s'], ['88%', '70%', '#1fa75a', '3s'], ['6%', '14%', '#8a5dd0', '2.2s']]
+    .map(([left, top, c, d]) => el('div.deco-chip', { style: { left, top, '--c': c, animationDelay: d } }));
   const node = el('div.screen.standby',
-    floats,
+    el('div.rays'), floats, decoChips,
     el('div.title', 'IT部 CASINO'),
     el('div.sub', 'カードの QR コードをカメラにかざしてね'),
     el('div.scanbox', video, el('div.frame'), el('div.scanline'), nocam),
@@ -321,13 +332,18 @@ function showMenu() {
 // ---------- 賭け設定 ----------
 function showBet(game, introShown = false) {
   const cfg = state.config.games[game.id];
-  if (game.intro && !introShown) {
-    // 開始前のルール説明
-    const node = el('div.screen', el('div.panel.rules-box',
-      el('h2', `${cfg.name} のルール`), game.intro(cfg),
-      el('div.row', { style: { justifyContent: 'center', marginTop: '16px' } },
+  if (game.intro && !introShown && (game.optionsEditor || !state.introSeen[game.id])) {
+    // 開始前のルール説明（ゲームによってはルールを選べる）。説明だけのゲームは1人1回
+    state.introSeen[game.id] = true;
+    const options = gameOptions(game);
+    const editor = game.optionsEditor ? game.optionsEditor(cfg, options, (o) => { state.gameOptions[game.id] = o; }) : null;
+    const node = el('div.screen', el('div.panel.rules-box', { style: { maxWidth: '1000px' } },
+      el('h2', `${game.icon} ${cfg.name} のルール`),
+      editor,
+      game.intro(cfg, options),
+      el('div.row.sticky-actions', { style: { justifyContent: 'center', marginTop: '16px' } },
         el('button.btn.secondary', { on: { click: showMenu } }, 'もどる'),
-        el('button.btn.big', { on: { click: () => showBet(game, true) } }, 'わかった！'))));
+        el('button.btn.big', { on: { click: () => showBet(game, true) } }, editor ? 'このルールで遊ぶ！' : 'わかった！'))));
     setScreen(node, 'intro');
     return;
   }
@@ -415,10 +431,22 @@ function showBet(game, introShown = false) {
   render();
 }
 
+function gameOptions(game) {
+  if (!state.gameOptions[game.id] && game.defaultOptions) state.gameOptions[game.id] = game.defaultOptions(state.config.games[game.id]);
+  return state.gameOptions[game.id] || {};
+}
+
+// ゲーム中にルールを見返す
+function showRules(game) {
+  const cfg = state.config.games[game.id];
+  showOverlay(`${game.icon} ${cfg.name} のルール`, game.intro(cfg, gameOptions(game)));
+}
+
 // ---------- ゲーム実行 ----------
 function playGame(game, round) {
   state.inGame = true;
   state.round = round;
+  state.currentGame = game;
   const cfg = state.config.games[game.id];
   const root = el('div.screen.game-screen');
   setScreen(root, 'game');
@@ -429,6 +457,7 @@ function playGame(game, round) {
     cfg,
     sound,
     player: state.player,
+    options: gameOptions(game),
     async finish(result) {
       if (finished) return;
       finished = true;
@@ -466,7 +495,11 @@ async function showResult(game, r) {
   const buttons = el('div.row', { style: { justifyContent: 'center', marginTop: '20px', visibility: 'hidden' } },
     el('button.btn.secondary.big', { on: { click: () => showBet(game, true) } }, 'もう一度'),
     el('button.btn.big', { on: { click: showMenu } }, 'ゲーム選択へ'));
-  const node = el('div.screen.result.center',
+  const big = r.delta > 0 && r.delta >= r.bet * 2;
+  const stamp = r.delta > 0 ? (big ? 'BIG WIN!!' : 'WIN!') : r.delta === 0 ? 'DRAW' : null;
+  const node = el('div.screen.result.center', { class: big ? 'bigwin' : r.delta > 0 ? 'win' : r.delta < 0 ? 'lose' : '' },
+    el('div.rays'),
+    stamp ? el('div.stamp', stamp) : null,
     el('div.muted', cfg.name),
     el('div.label', r.label),
     el('div.formula', baseText),
@@ -476,7 +509,7 @@ async function showResult(game, r) {
   setScreen(node, 'result');
 
   if (r.delta > 0) {
-    if (r.delta >= r.bet * 2) { sound.bigWin(); confetti(140); } else { sound.win(); confetti(50); }
+    if (big) { sound.bigWin(); confetti(120); coinShower(60); } else { sound.win(); confetti(50); coinShower(15); }
   } else if (r.delta < 0) sound.lose();
   await countUp(deltaEl, 0, r.delta, 1000, (v) => signed(Math.round(v)));
   await countUp(nowEl, before, r.player.chips, 800);

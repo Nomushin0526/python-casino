@@ -65,6 +65,9 @@ export function multLabel(m) {
 // トランプ1枚
 export function cardEl(c, { back = false, cls = '', size } = {}) {
   if (back || !c) return el('div.pcard.back', { class: cls, style: size ? { '--cw': size + 'px' } : null });
+  if (c.joker && size && size <= 34) {
+    return el('div.pcard.mini.joker', { class: cls, style: { '--cw': size + 'px' } }, el('div.mr', '★'), el('div.ms', 'JK'));
+  }
   if (c.joker) {
     return el('div.pcard.joker', { class: cls, style: size ? { '--cw': size + 'px' } : null },
       el('div.tl', '★'), el('div.mid', 'JOKER'), el('div.br', '★'));
@@ -72,6 +75,10 @@ export function cardEl(c, { back = false, cls = '', size } = {}) {
   const red = c.s === 'H' || c.s === 'D';
   const r = rankLabel(c.r);
   const s = SUIT_MARK[c.s];
+  if (size && size <= 34) {
+    // 早見表用のミニカード（数字とマークだけ）
+    return el('div.pcard.mini', { class: (red ? 'red ' : '') + cls, style: { '--cw': size + 'px' } }, el('div.mr', r), el('div.ms', s));
+  }
   return el('div.pcard', { class: (red ? 'red ' : '') + cls, style: size ? { '--cw': size + 'px' } : null },
     el('div.tl', r, el('i', s)), el('div.mid', s), el('div.br', r, el('i', s)));
 }
@@ -140,6 +147,22 @@ export function confetti(n = 80) {
   }
 }
 
+// 金色のコインが降ってくる演出
+export function coinShower(n = 40) {
+  for (let i = 0; i < n; i++) {
+    const d = el('div.coin', {
+      style: {
+        left: Math.random() * 100 + 'vw',
+        animationDuration: 1.6 + Math.random() * 1.8 + 's',
+        animationDelay: Math.random() * 1.2 + 's',
+        transform: `scale(${0.7 + Math.random() * 0.6})`,
+      },
+    });
+    document.body.append(d);
+    setTimeout(() => d.remove(), 5000);
+  }
+}
+
 // 手番の制限時間（時間切れで onTimeout）
 export function turnTimer(container, seconds, onTimeout) {
   const bar = el('div.timer-bar', el('div'));
@@ -177,4 +200,48 @@ export function turnTimer(container, seconds, onTimeout) {
   };
   box.style.visibility = 'hidden';
   return api;
+}
+
+// "5H 6H 7H" のような表記からカードの配列を作る（早見表の例示用）
+const RANK_FROM = { A: 1, J: 11, Q: 12, K: 13 };
+export function cards(str) {
+  return str.split(/\s+/).filter(Boolean).map((t) => (t === 'JK'
+    ? { joker: true, r: 0, s: 'X', id: 'JK' }
+    : { r: RANK_FROM[t.slice(0, -1)] || Number(t.slice(0, -1)), s: t.slice(-1) }));
+}
+
+export function miniCards(str, size = 24) {
+  return el('div.mini-cards', cards(str).map((c) => cardEl(c, { size })));
+}
+
+// ゲーム画面を「メイン＋右側の早見表」に分ける
+export function gameLayout(root, title = '早見表') {
+  root.classList.add('with-side');
+  const main = el('div.game-main');
+  const body = el('div.side-body');
+  const side = el('aside.side-panel', el('div.side-title', '📖 ', title), body);
+  clear(root, main, side);
+  return { main, side: body };
+}
+
+// 早見表の1行（タイトル・説明・カードの絵）
+export function sideRow({ title, desc, visual, note, cls = '' }) {
+  return el('div.side-row', { class: cls },
+    el('div.side-row-head', el('b', title), note ? el('span.side-note', note) : null),
+    desc ? el('div.side-desc', desc) : null,
+    visual || null);
+}
+
+// ルール説明のオーバーレイ（ゲーム中にいつでも開ける）
+export function showOverlay(title, content) {
+  const close = () => box.remove();
+  const box = el('div.overlay', { on: { click: (e) => { if (e.target === box) close(); } } },
+    el('div.panel.rules-box', { style: { maxHeight: '90vh', overflowY: 'auto' } },
+      el('div.row', el('h2', { style: { margin: 0 } }, title), el('div.spacer'), el('button.btn.small', { on: { click: close } }, '閉じる')),
+      content,
+      el('div.center', { style: { marginTop: '14px' } }, el('button.btn', { on: { click: close } }, 'ゲームにもどる'))));
+  document.body.append(box);
+  const onKey = (e) => { if (e.key === 'Escape') { close(); window.removeEventListener('keydown', onKey, true); } };
+  window.addEventListener('keydown', onKey, true);
+  return close;
 }

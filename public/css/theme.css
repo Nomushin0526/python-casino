@@ -1,0 +1,227 @@
+/* =========================================================
+   華やかな演出（すべてCSS/SVGで自作。外部素材なし）
+   ========================================================= */
+
+/* ---------- 背景：ベルベット＋光のぼかし＋ひし形模様 ---------- */
+body {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(181, 123, 255, .35), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 0% 100%, rgba(255, 47, 120, .22), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(77, 163, 255, .2), transparent 60%),
+    linear-gradient(180deg, #160b2e 0%, #0b0a1c 60%, #07060f 100%);
+  background-attachment: fixed;
+}
+#app::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M24 2 L46 24 L24 46 L2 24 Z' fill='none' stroke='%23f6c453' stroke-width='1'/%3E%3Ccircle cx='24' cy='24' r='2' fill='%23f6c453'/%3E%3C/svg%3E");
+}
+#app::after {
+  content: ""; position: fixed; inset: -20%; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(246,196,83,.10) 0 6%, transparent 7%),
+    radial-gradient(circle at 75% 20%, rgba(255,79,184,.10) 0 5%, transparent 6%),
+    radial-gradient(circle at 60% 80%, rgba(77,163,255,.10) 0 7%, transparent 8%),
+    radial-gradient(circle at 15% 85%, rgba(61,220,132,.08) 0 5%, transparent 6%),
+    radial-gradient(circle at 90% 65%, rgba(246,196,83,.08) 0 4%, transparent 5%);
+  filter: blur(18px);
+  animation: bokeh 26s ease-in-out infinite alternate;
+}
+@keyframes bokeh { 0% { transform: translate(0, 0) scale(1); } 50% { transform: translate(3%, -2%) scale(1.05); } 100% { transform: translate(-3%, 2%) scale(1); } }
+#topbar, #screen { position: relative; z-index: 1; }
+
+/* ---------- トップバー：電飾 ---------- */
+#topbar {
+  background: linear-gradient(180deg, rgba(40, 10, 60, .95), rgba(20, 8, 35, .85));
+  border-bottom: 0;
+  box-shadow: 0 4px 24px rgba(0,0,0,.5);
+}
+#topbar::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 8px;
+  background: radial-gradient(circle, #fff6c8 0 2px, #f6c453 3px, transparent 4px) 0 0 / 22px 8px repeat-x;
+  filter: drop-shadow(0 0 4px #f6c453);
+  animation: bulbs 1.2s steps(2) infinite;
+}
+@keyframes bulbs { 50% { background-position: 11px 0; } }
+#topbar .logo {
+  background: linear-gradient(90deg, #fff3c4, #f6c453, #ff9de0, #f6c453, #fff3c4);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shine-text 4s linear infinite;
+  text-shadow: none; filter: drop-shadow(0 0 8px rgba(246,196,83,.6));
+}
+@keyframes shine-text { to { background-position: -200% 0; } }
+
+/* ---------- パネル：ガラス＋金の縁 ---------- */
+.panel {
+  background: linear-gradient(160deg, rgba(48, 30, 82, .88), rgba(18, 16, 40, .92));
+  border: 1px solid rgba(246, 196, 83, .28);
+  box-shadow: 0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08), 0 0 40px rgba(181,123,255,.12);
+  backdrop-filter: blur(6px);
+}
+
+/* ---------- ボタン：光が走る ---------- */
+.btn { position: relative; overflow: hidden; }
+.btn::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent);
+  transform: skewX(-20deg); pointer-events: none; opacity: 0;
+}
+.btn:hover:not(:disabled)::after { animation: btn-shine .7s ease; opacity: 1; }
+@keyframes btn-shine { from { left: -60%; } to { left: 130%; } }
+.btn.big:not(.secondary):not(:disabled) { animation: btn-pulse 2.4s ease-in-out infinite; }
+@keyframes btn-pulse { 50% { box-shadow: 0 4px 0 #8a5d0c, 0 0 26px rgba(246,196,83,.55); } }
+.btn.danger.big:not(:disabled), .btn.blue.big:not(:disabled), .btn.green.big:not(:disabled) { animation: none; }
+
+/* ---------- 待機画面 ---------- */
+.standby .title {
+  font-size: 84px; position: relative;
+  background: linear-gradient(180deg, #fffbe6 0%, #ffe08a 35%, #f6c453 55%, #b4740c 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 0 18px rgba(246,196,83,.6)) drop-shadow(0 5px 0 #5a3a06);
+  animation: title-flicker 6s infinite;
+}
+@keyframes title-flicker { 0%, 92%, 100% { opacity: 1; } 93% { opacity: .6; } 94% { opacity: 1; } 96% { opacity: .75; } }
+.standby > .rays { position: absolute; left: 50%; top: 22%; width: 0; height: 0; pointer-events: none; z-index: 0; }
+.standby > .rays::before {
+  content: ""; position: absolute; left: -800px; top: -800px; width: 1600px; height: 1600px; border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(246,196,83,.10) 0 6deg, transparent 6deg 15deg);
+  -webkit-mask-image: radial-gradient(closest-side, #000 0 20%, transparent 75%);
+  mask-image: radial-gradient(closest-side, #000 0 20%, transparent 75%);
+  animation: spin 60s linear infinite;
+}
+.standby > *:not(.rays):not(.deco-chip):not(.chips-float) { position: relative; z-index: 1; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.standby .sub { animation: sub-pulse 2s ease-in-out infinite; }
+@keyframes sub-pulse { 50% { opacity: .65; } }
+.chips-float { opacity: .35; filter: drop-shadow(0 0 10px currentColor); }
+.chips-float:nth-child(4n+1) { color: #f6c453; }
+.chips-float:nth-child(4n+2) { color: #ff4d5e; }
+.chips-float:nth-child(4n+3) { color: #4da3ff; }
+.chips-float:nth-child(4n+4) { color: #3ddc84; }
+.scanbox { box-shadow: 0 0 0 4px rgba(246,196,83,.25), 0 0 50px rgba(246,196,83,.45), inset 0 0 30px rgba(0,0,0,.6); }
+
+/* ---------- カジノチップ（装飾） ---------- */
+.deco-chip {
+  position: absolute; width: 74px; height: 74px; border-radius: 50%; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(circle, var(--c) 0 42%, #fff 43% 46%, var(--c) 47% 60%, transparent 61%),
+    repeating-conic-gradient(from 0deg, #fff 0 15deg, var(--c) 15deg 45deg);
+  box-shadow: 0 6px 16px rgba(0,0,0,.5), inset 0 0 0 3px rgba(0,0,0,.25);
+  animation: chip-float 7s ease-in-out infinite;
+}
+@keyframes chip-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-24px) rotate(160deg); } }
+
+/* ---------- ゲーム選択カード ---------- */
+.game-card {
+  background: linear-gradient(150deg, var(--g1, rgba(255,255,255,.1)), var(--g2, rgba(255,255,255,.02)));
+  border: 2px solid rgba(255,255,255,.12);
+  animation: card-in .5s ease backwards;
+}
+.game-card:nth-child(1) { --g1: rgba(255,79,184,.35); --g2: rgba(77,30,120,.35); animation-delay: .05s; }
+.game-card:nth-child(2) { --g1: rgba(61,220,132,.28); --g2: rgba(10,60,40,.35); animation-delay: .1s; }
+.game-card:nth-child(3) { --g1: rgba(255,77,94,.28); --g2: rgba(80,10,30,.35); animation-delay: .15s; }
+.game-card:nth-child(4) { --g1: rgba(77,163,255,.28); --g2: rgba(10,30,80,.35); animation-delay: .2s; }
+.game-card:nth-child(5) { --g1: rgba(246,196,83,.3); --g2: rgba(80,50,10,.35); animation-delay: .25s; }
+.game-card:nth-child(6) { --g1: rgba(244,143,177,.3); --g2: rgba(90,20,60,.35); animation-delay: .3s; }
+@keyframes card-in { from { opacity: 0; transform: translateY(20px) scale(.96); } }
+.game-card::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 35%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.25), transparent);
+  transform: skewX(-20deg); pointer-events: none;
+}
+.game-card:hover::after { animation: btn-shine .8s ease; }
+.game-card .icon { font-size: 54px; filter: drop-shadow(0 0 14px rgba(255,255,255,.35)); transition: transform .2s; }
+.game-card:hover .icon { transform: scale(1.12) rotate(-6deg); }
+.game-card .name { text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+.game-card .tag { animation: tag-pulse 1.2s ease-in-out infinite; box-shadow: 0 0 16px rgba(255,77,94,.7); }
+@keyframes tag-pulse { 50% { transform: scale(1.1); } }
+
+/* ---------- テーブル：ベルベット＋金の縁 ---------- */
+.table-felt {
+  position: relative;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 50% 40%, #1f8f5c 0%, #136b43 40%, #0a4229 80%, #062a1a 100%);
+  border: 12px solid transparent;
+  border-image: linear-gradient(135deg, #7a4a1c, #c58a3a 20%, #5a3210 40%, #b37a30 60%, #4a2b12 80%, #c58a3a) 1;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 3px rgba(246,196,83,.55), inset 0 0 80px rgba(0,0,0,.65), 0 20px 50px rgba(0,0,0,.6), 0 0 40px rgba(246,196,83,.15);
+}
+.table-felt::before {
+  content: "♠ IT部 CASINO ♥"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  font-size: 46px; font-weight: 900; letter-spacing: .2em; color: rgba(255,255,255,.05); white-space: nowrap; pointer-events: none;
+}
+
+/* ---------- カードの裏面：自作の模様 ---------- */
+.pcard.back {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M8 0 L16 8 L8 16 L0 8 Z' fill='none' stroke='%23ffd27a' stroke-opacity='.55' stroke-width='1'/%3E%3Ccircle cx='8' cy='8' r='1.5' fill='%23ffd27a' fill-opacity='.6'/%3E%3C/svg%3E"),
+    radial-gradient(circle at 50% 50%, #c4213a, #7a0f22);
+  border: 3px solid #fff;
+  box-shadow: inset 0 0 0 2px #c4213a, inset 0 0 0 4px rgba(255,210,122,.6), 0 3px 8px rgba(0,0,0,.45);
+}
+.pcard { background: linear-gradient(160deg, #ffffff 0%, #f6f1e4 70%, #e8dfc8 100%); }
+.pcard.win { animation: win-glow 1s ease-in-out infinite; }
+@keyframes win-glow { 50% { box-shadow: 0 0 0 4px #fff, 0 0 36px var(--gold); transform: translateY(-6px); } }
+.hana.back {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Ccircle cx='7' cy='7' r='3' fill='none' stroke='%23ffb0b0' stroke-opacity='.35'/%3E%3C/svg%3E"),
+    linear-gradient(160deg, #5a1414, #2a0606);
+}
+
+/* ---------- 大きなバナー（大富豪の 革命！ など） ---------- */
+.big-banner {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 5;
+  font-size: 84px; font-weight: 900; letter-spacing: .05em; opacity: 0;
+  background: linear-gradient(180deg, #fffbe6, #f6c453 60%, #b4740c); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 20px rgba(246,196,83,.8)) drop-shadow(0 4px 0 #5a3a06);
+}
+.big-banner.show { animation: banner-pop 1.3s ease forwards; }
+@keyframes banner-pop { 0% { opacity: 0; transform: scale(2.2) rotate(-6deg); } 18% { opacity: 1; transform: scale(.95) rotate(0); } 28% { transform: scale(1.05); } 80% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.1); } }
+
+/* ---------- 結果画面 ---------- */
+.result > * { position: relative; z-index: 1; }
+.result > .rays {
+  position: absolute; left: 50%; top: 42%; width: 0; height: 0; z-index: 0; pointer-events: none;
+}
+.result > .rays::before {
+  content: ""; position: absolute; left: -900px; top: -900px; width: 1800px; height: 1800px; border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, var(--ray, rgba(246,196,83,.16)) 0 8deg, transparent 8deg 20deg);
+  -webkit-mask-image: radial-gradient(closest-side, #000 0 15%, transparent 70%);
+  mask-image: radial-gradient(closest-side, #000 0 15%, transparent 70%);
+  animation: spin 30s linear infinite;
+}
+.result.lose > .rays { --ray: rgba(120,130,160,.08); }
+.result.win > .rays { --ray: rgba(61,220,132,.2); }
+.result.bigwin > .rays { --ray: rgba(246,196,83,.3); }
+.result.bigwin > .rays::before { animation-duration: 12s; }
+.result .label { text-shadow: 0 0 20px rgba(255,255,255,.3); }
+.result .delta { animation: delta-pop .6s cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes delta-pop { from { transform: scale(.3); opacity: 0; } }
+.result .stamp {
+  font-size: 64px; font-weight: 900; letter-spacing: .08em; transform: rotate(-6deg); margin-bottom: 14px;
+  background: linear-gradient(180deg, #fffbe6, #f6c453 55%, #b4740c); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 16px rgba(246,196,83,.8)) drop-shadow(0 4px 0 #5a3a06);
+  animation: stamp-in .5s cubic-bezier(.2,1.8,.4,1) both, stamp-glow 1.2s ease-in-out .5s infinite;
+}
+@keyframes stamp-in { from { transform: scale(3) rotate(-6deg); opacity: 0; } }
+@keyframes stamp-glow { 50% { filter: drop-shadow(0 0 30px rgba(246,196,83,1)) drop-shadow(0 4px 0 #5a3a06); } }
+
+/* ---------- コインのシャワー ---------- */
+.coin {
+  position: fixed; top: -40px; width: 30px; height: 30px; border-radius: 50%; pointer-events: none; z-index: 60;
+  background: radial-gradient(circle at 35% 30%, #fffbe6 0 15%, #ffd65a 30%, #e09b1a 70%, #8a5d0c 100%);
+  box-shadow: inset 0 0 0 3px rgba(138,93,12,.6), 0 2px 6px rgba(0,0,0,.4);
+  animation: coin-fall linear forwards;
+}
+.coin::after { content: "¢"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #8a5d0c; font-size: 16px; }
+@keyframes coin-fall { to { transform: translateY(112vh) rotateY(1080deg); } }
+
+/* ---------- 賭け画面 ---------- */
+.bet-amount {
+  background: linear-gradient(180deg, #fffbe6, #f6c453 60%, #b4740c); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 14px rgba(246,196,83,.5));
+}
+.bet-amount small { -webkit-text-fill-color: var(--muted); }
+.sticky-actions { position: sticky; bottom: -24px; padding: 14px 0; margin-bottom: -10px; background: linear-gradient(180deg, transparent, rgba(18,16,40,.95) 30%); z-index: 2; }

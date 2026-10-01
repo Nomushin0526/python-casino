@@ -234,11 +234,11 @@ input[type=range] { width: 100%; accent-color: var(--gold); height: 30px; }
 }
 .hana .m { font-size: calc(var(--hw) * .34); font-weight: 900; line-height: 1.1; text-shadow: 0 1px 2px #000; }
 .hana .mn { font-size: calc(var(--hw) * .16); font-weight: 700; opacity: .9; font-family: var(--num); }
-.hana .badge { font-size: calc(var(--hw) * .2); font-weight: 900; line-height: 1; padding: 3px 4px; border-radius: 4px; }
+.hana .badge { flex-shrink: 0; white-space: nowrap; font-size: calc(var(--hw) * .2); font-weight: 900; line-height: 1; padding: 3px 4px; border-radius: 4px; }
 .hana .nm { font-size: calc(var(--hw) * .15); line-height: 1.1; text-align: center; max-height: 2.3em; overflow: hidden; }
 .hana.t-hikari .badge { background: radial-gradient(circle, #fff6c8, var(--gold) 60%, #b07800); color: #3a2400; border-radius: 50%; width: calc(var(--hw) * .45); height: calc(var(--hw) * .45); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px var(--gold); }
 .hana.t-tane .badge { background: #fff; color: #222; }
-.hana.t-tan .badge { background: #c62828; color: #fff; writing-mode: vertical-rl; padding: 4px 3px; font-size: calc(var(--hw) * .21); letter-spacing: .05em; }
+.hana.t-tan .badge { background: #c62828; color: #fff; padding: 3px 4px; font-size: calc(var(--hw) * .2); box-shadow: 0 0 0 1px rgba(255,255,255,.5); }
 .hana.t-tan.f-ao .badge { background: #1565c0; }
 .hana.t-tan.f-plain .badge { background: #6a1b9a; }
 .hana.t-kasu .badge { background: rgba(0,0,0,.35); color: #ddd; font-size: calc(var(--hw) * .15); }
@@ -252,3 +252,31 @@ input[type=range] { width: 100%; accent-color: var(--gold); height: 30px; }
 .hana.small { --hw: 34px; border-width: 2px; }
 .hana.small .nm, .hana.small .mn { display: none; }
 .hana.small .badge { font-size: 9px; }
+
+/* ---------- 早見表（右サイド） ---------- */
+.game-screen.with-side { flex-direction: row; align-items: stretch; gap: 14px; }
+.game-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; }
+.side-panel { width: 300px; flex: 0 0 300px; display: flex; flex-direction: column; background: linear-gradient(180deg, rgba(40,22,70,.92), rgba(16,14,36,.95)); border: 1px solid rgba(246,196,83,.35); border-radius: 16px; box-shadow: 0 0 30px rgba(181,123,255,.15), inset 0 1px 0 rgba(255,255,255,.08); min-height: 0; overflow: hidden; }
+.side-title { padding: 10px 14px; font-weight: 900; font-size: 17px; color: var(--gold); border-bottom: 1px solid rgba(246,196,83,.25); background: rgba(0,0,0,.25); letter-spacing: .05em; }
+.side-body { padding: 8px 10px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.side-body h4 { margin: 8px 2px 2px; font-size: 14px; color: var(--muted); font-weight: 700; }
+.side-row { padding: 7px 9px; border-radius: 10px; background: rgba(255,255,255,.05); border: 1px solid transparent; transition: background .2s, border-color .2s; }
+.side-row-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 15px; }
+.side-note { font-size: 13px; color: var(--gold); font-weight: 800; white-space: nowrap; }
+.side-desc { font-size: 12.5px; color: var(--muted); margin: 2px 0 4px; line-height: 1.4; }
+.side-row.on { background: linear-gradient(90deg, rgba(61,220,132,.28), rgba(61,220,132,.06)); border-color: var(--green); box-shadow: 0 0 14px rgba(61,220,132,.25); }
+.side-row.on .side-row-head b::after { content: ' ← いまココ'; color: var(--green); font-size: 12px; }
+.side-row.done { background: linear-gradient(90deg, rgba(246,196,83,.3), rgba(246,196,83,.06)); border-color: var(--gold); }
+.side-row.done .side-row-head b::after { content: ' ✓ 成立'; color: var(--gold); font-size: 12px; }
+.side-row.warn-on { border-color: var(--red); background: rgba(255,77,94,.15); }
+.mini-cards { display: flex; gap: 3px; flex-wrap: wrap; align-items: center; }
+.mini-cards .arrow { color: var(--muted); font-size: 13px; padding: 0 2px; }
+.pcard.mini { box-shadow: 0 1px 3px rgba(0,0,0,.5); border-radius: 4px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+.pcard.mini .mr { font-size: calc(var(--cw) * .48); font-weight: 900; letter-spacing: -.04em; }
+.pcard.mini .ms { font-size: calc(var(--cw) * .45); }
+.pcard.mini.joker { color: #6a1bb0; }
+.pcard.mini.joker .ms { font-size: calc(var(--cw) * .32); }
+.hana.dim, .pcard.dim { filter: grayscale(.8) brightness(.45); }
+.strength-line { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; }
+.strength-line .lt { color: var(--muted); font-size: 11px; }
+.easy-label { display: block; font-size: 11px; font-weight: 700; opacity: .85; margin-top: 2px; }
