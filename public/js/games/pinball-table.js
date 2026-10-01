@@ -18,6 +18,12 @@ export const FLIPPER = {
   right: { x: 377, y: 792 },
 };
 
+// スリングショットの形（壁側の上端・キッカー面の下端・ガイド上の根元）
+export const SLING = { top: 540, tipX: 118, tipY: 680, baseX: 140 };
+
+export const STUCK_FRAMES = 120; // 2秒動かなければ救済
+export const NUDGE_COOLDOWN = 90; // 台をゆらす のクールダウン（フレーム）
+
 export const SCORE = {
   bumper: 100,
   sling: 30,
@@ -104,17 +110,27 @@ export function buildTable(Matter) {
   // インレーンのガイド（左右）
   seg(10, 640, FLIPPER.left.x - 14, FLIPPER.left.y - 8, 14);
   seg(FIELD_R, 640, FLIPPER.right.x + 14, FLIPPER.right.y - 8, 14);
-  // 左下・右下の埋め（ボールが溜まらないように）
-  seg(10, 600, 10, 650, 14);
 
-  // スリングショット（フリッパー上の斜めキッカー）
-  const sling = (x1, y1, x2, y2, nx, ny) => {
-    const b = seg(x1, y1, x2, y2, 12, { label: 'sling', restitution: 0.6 });
+  // スリングショット：壁・ガイドとすき間なくつながった三角形の台座（ボールがはまる穴を作らない）
+  // 上側の斜面（キッカー面）に当たると弾き返す
+  const sling = (pts) => {
+    const c = centroid(pts);
+    // fromVertices は配列を並べ替えるのでコピーを渡す
+    const b = Bodies.fromVertices(c.x, c.y, [pts.map((q) => ({ ...q }))], { isStatic: true, restitution: 0.5, friction: 0.02, label: 'sling' });
+    const [a, f] = pts; // キッカー面 a→f
+    const dx = f.x - a.x, dy = f.y - a.y, len = Math.hypot(dx, dy);
+    // 面の法線（プレイフィールド側＝上向き）
+    let nx = dy / len, ny = -dx / len;
+    if (ny > 0) { nx = -nx; ny = -ny; }
     b.kick = { x: nx, y: ny };
+    b.face = { a, f };
+    b.poly = pts;
     parts.slings.push(b);
   };
-  sling(85, 610, 128, 712, 0.92, -0.39);
-  sling(460, 610, 417, 712, -0.92, -0.39);
+  const L = SLING;
+  sling([{ x: 10, y: L.top }, { x: L.tipX, y: L.tipY }, { x: L.baseX, y: 640 + (L.baseX - 10) }, { x: 10, y: 640 }]);
+  const mx = (x) => 10 + FIELD_R - x; // 左右反転
+  sling([{ x: FIELD_R, y: L.top }, { x: mx(L.tipX), y: L.tipY }, { x: mx(L.baseX), y: 640 + (L.baseX - 10) }, { x: FIELD_R, y: 640 }]);
 
   // ポップバンパー
   for (const [x, y] of [[190, 285], [350, 285], [270, 385]]) {
@@ -167,7 +183,7 @@ export function buildTable(Matter) {
   parts.flippers = { left: makeFlipper('left'), right: makeFlipper('right') };
 
   Composite.add(world, [
-    ...parts.walls, gate, ...parts.bumpers, ...parts.posts, ...parts.rollovers, ...parts.targets,
+    ...parts.walls, gate, ...parts.slings, ...parts.bumpers, ...parts.posts, ...parts.rollovers, ...parts.targets,
     parts.jackpot, parts.spinner, parts.sensors.drain, parts.flippers.left.body, parts.flippers.right.body,
   ]);
   return { engine, world, parts };
@@ -222,7 +238,9 @@ export class PinballSim {
     this.targetLit = [false, false, false];
     this.flash = new Map(); // body -> 残りフレーム（描画用）
     this.frame = 0;
-    this.stuckFrames = 0;
+    this.trail = []; // 直近の位置（引っかかり検出用）
+    this.rescueCount = 0;
+    this.lastNudgeFrame = -9999;
     Matter.Events.on(this.engine, 'collisionStart', (e) => this.onCollide(e));
   }
 
@@ -240,6 +258,18 @@ export class PinballSim {
     this.inLane = true;
     this.parts.gate.isSensor = true;
     Body.setVelocity(this.ball, { x: 0, y: 0 });
+    this.trail = [];
+    this.rescueCount = 0;
+  }
+
+  // 「台をゆらす」：プレイヤー操作。止まりかけのボールを上に弾く（クールダウンあり）
+  nudge() {
+    if (!this.ball || this.inLane || this.frame - this.lastNudgeFrame < NUDGE_COOLDOWN) return false;
+    this.lastNudgeFrame = this.frame;
+    const v = this.ball.velocity;
+    this.M.Body.setVelocity(this.ball, { x: v.x + (Math.random() - 0.5) * 4, y: Math.min(v.y, 0) - 6 });
+    this.onEvent({ type: 'nudge', manual: true });
+    return true;
   }
 
   // power: 0〜1
@@ -271,11 +301,14 @@ export class PinballSim {
           break;
         }
         case 'sling': {
-          // 表側に当たったときだけ弾く
-          const dx = ball.position.x - other.position.x, dy = ball.position.y - other.position.y;
-          if (dx * other.kick.x + dy * other.kick.y > 0) {
-            const sp = 6 + Math.random() * 3;
-            Body.setVelocity(ball, { x: other.kick.x * sp + (Math.random() - 0.5) * 2, y: other.kick.y * sp + (Math.random() - 0.5) * 2 });
+          // キッカー面（上側の斜面）に当たったときだけ弾く
+          const { a: fa, f: ff } = other.face;
+          const ex = ff.x - fa.x, ey = ff.y - fa.y;
+          const t = ((ball.position.x - fa.x) * ex + (ball.position.y - fa.y) * ey) / (ex * ex + ey * ey);
+          const side = (ball.position.x - fa.x) * other.kick.x + (ball.position.y - fa.y) * other.kick.y;
+          if (t > -0.05 && t < 1.05 && side > 0) {
+            const sp = 7 + Math.random() * 3;
+            Body.setVelocity(ball, { x: other.kick.x * sp + (Math.random() - 0.5) * 2, y: other.kick.y * sp - 2 + (Math.random() - 0.5) * 2 });
             this.add(SCORE.sling, 'sling', other);
           }
           break;
@@ -348,14 +381,32 @@ export class PinballSim {
     }
     // 万一ボールが場外に出たときの保険
     if (this.drained || p.y > H + 20 || p.x < -50 || p.x > W + 50 || p.y < -100 || Number.isNaN(p.x)) return 'drain';
-    // 引っかかり対策：止まり続けたら軽く揺らす
-    if (!this.inLane && ball.speed < 0.15) {
-      if (++this.stuckFrames > 120) {
-        Body.setVelocity(ball, { x: (Math.random() - 0.5) * 6, y: -4 });
-        this.stuckFrames = 0;
-        this.onEvent({ type: 'nudge' });
+    // 引っかかり対策：一定時間ほとんど動いていなければ弾き出す。
+    // それでも抜けなければボールを中央に戻す（フリッパーで抱えている間は除く）
+    const holding = ['left', 'right'].some((side) => {
+      const f = this.parts.flippers[side];
+      return f.pressed && Math.abs(p.x - f.pivot.x) < FLIPPER.length + 15 && Math.abs(p.y - f.pivot.y) < 50;
+    });
+    this.trail.push({ x: p.x, y: p.y });
+    if (this.trail.length > STUCK_FRAMES) this.trail.shift();
+    if (this.inLane || holding) {
+      this.trail = [];
+    } else if (this.trail.length === STUCK_FRAMES) {
+      let maxD = 0;
+      for (const q of this.trail) maxD = Math.max(maxD, Math.hypot(q.x - p.x, q.y - p.y));
+      if (maxD < 10) {
+        this.trail = [];
+        if (++this.rescueCount >= 2) {
+          Body.setPosition(ball, { x: 272, y: 470 });
+          Body.setVelocity(ball, { x: (Math.random() - 0.5) * 4, y: 1 });
+          this.rescueCount = 0;
+          this.onEvent({ type: 'rescue' });
+        } else {
+          Body.setVelocity(ball, { x: p.x < 272 ? 5 : -5, y: -10 });
+          this.onEvent({ type: 'nudge' });
+        }
       }
-    } else this.stuckFrames = 0;
+    }
     return null;
   }
 }
