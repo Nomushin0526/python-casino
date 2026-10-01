@@ -59,7 +59,8 @@ PC-B はブラウザ（Chrome か Edge）があればOK。Node.js は不要で�
 
 - PC-A のIPアドレスは、サーバー起動時の黒い画面に「他のPCから : http://192.168.x.x:3000/」と表示されます
 - ゲーム端末はキオスク（全画面）モードで開きます。**終了は Alt + F4**
-- Mac / Linux でサーバーを動かす場合は `start-server.command`
+- Mac の場合は `start-server.command` / `start-game.command` / `start-ranking.command` / `backup-to-usb.command`
+  （Chrome が必要。キオスクの終了は ⌘Q。初回は右クリック →「開く」）
 
 ### 別PC（PC-B）でカメラを使う設定について
 
