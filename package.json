@@ -1,0 +1,25 @@
+{
+  "name": "gakusai-casino",
+  "version": "1.0.0",
+  "private": true,
+  "description": "情報技術部 学祭カジノ展示（QRカード＋チップ管理＋ミニゲーム）",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test",
+    "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
+    "vendor": "node scripts/copy-vendor.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "jsqr": "^1.4.0",
+    "matter-js": "^0.20.0"
+  }
+}

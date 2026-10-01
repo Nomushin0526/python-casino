@@ -1,0 +1,114 @@
+{
+  "_comment": "数値はここで調整できます。当日用のパスワード等は config.local.json に同じ形で書くと上書きされます（Git管理外）。変更後はサーバーを再起動してください。",
+
+  "server": {
+    "port": 3000,
+    "dbFile": "data/casino.db",
+    "backupDir": "data/backups",
+    "autoBackupMinutes": 10,
+    "autoBackupKeep": 50
+  },
+
+  "admin": {
+    "password": "casino-admin",
+    "sessionHours": 12
+  },
+
+  "card": {
+    "_comment": "QRの中身は「P0001-ABCD」の形式（IDと確認コード）。secretを変えると既存カードが使えなくなるので、カード印刷後は変更しないこと。",
+    "idPrefix": "P",
+    "idDigits": 4,
+    "secret": "change-me-before-printing",
+    "requireCheckCode": true
+  },
+
+  "chips": {
+    "initial": 100,
+    "minBet": 10,
+    "leverages": [1, 2, 5, 10],
+    "betPresets": [10, 20, 50, 100],
+    "vrBonus": 50,
+    "vrBonusPerDay": 1,
+    "revive": 50,
+    "revivePerDay": 1,
+    "reviveOnlyWhenZero": true
+  },
+
+  "session": {
+    "_comment": "lockTimeoutSec: この秒数ハートビートが無ければ端末ロックを自動解除。idleSec: 無操作でこの秒数たつと待機画面に戻る",
+    "lockTimeoutSec": 90,
+    "heartbeatSec": 15,
+    "idleSec": 90,
+    "idleWarnSec": 15,
+    "resultSec": 6
+  },
+
+  "nickname": {
+    "maxLength": 10
+  },
+
+  "ranking": {
+    "limit": 30,
+    "refreshSec": 5
+  },
+
+  "games": {
+    "pinball": {
+      "enabled": true,
+      "name": "レバレッジピンボール",
+      "balls": 3,
+      "secondsPerBall": 30,
+      "_thresholds": "合計スコアがこの値以上で各倍率。テストプレイ後に調整",
+      "targetScore": 3000,
+      "highScore": 6000,
+      "superScore": 10000,
+      "multipliers": { "miss": -1, "target": 1, "high": 2, "super": 3 },
+      "leftKeys": ["z", "Z", "ShiftLeft", "ArrowLeft"],
+      "rightKeys": ["/", "?", "ShiftRight", "ArrowRight"],
+      "launchKeys": [" ", "Enter", "ArrowDown"]
+    },
+    "blackjack": {
+      "enabled": true,
+      "name": "ブラックジャック",
+      "decks": 6,
+      "dealerStandsOn": 17,
+      "multipliers": { "win": 1, "blackjack": 1.5, "push": 0, "lose": -1 }
+    },
+    "baccarat": {
+      "enabled": true,
+      "name": "バカラ",
+      "multipliers": { "player": 1, "banker": 0.95, "tie": 8, "lose": -1 },
+      "_tieRule": "trueならプレイヤー/バンカーに賭けてタイになった場合は引き分け(0)。falseなら外れ(-1)",
+      "tiePushesPlayerBanker": true
+    },
+    "holdem": {
+      "enabled": true,
+      "name": "テキサスホールデム",
+      "cpuCount": 3,
+      "hands": 5,
+      "smallBlindRate": 0.05,
+      "bigBlindRate": 0.1
+    },
+    "daifugo": {
+      "enabled": true,
+      "name": "大富豪",
+      "jokers": 1,
+      "multipliers": { "daifugo": 2, "fugo": 1, "hinmin": -1, "daihinmin": -2 }
+    },
+    "koikoi": {
+      "enabled": true,
+      "name": "花札（こいこい）",
+      "rounds": 3,
+      "bigWinDiff": 10,
+      "multipliers": { "bigWin": 2, "win": 1, "draw": 0, "lose": -1 },
+      "koikoiDoubles": true,
+      "sevenPointsDoubles": false
+    }
+  },
+
+  "ngWords": [
+    "ばか", "あほ", "しね", "ころす", "うんこ", "うんち", "ちんこ", "ちんちん", "まんこ", "きもい", "くそ", "ぶす", "でぶ", "はげ",
+    "fuck", "shit", "bitch", "dick", "pussy", "sex", "kill", "nigger", "nigga", "porn",
+    "せっくす", "えろ", "おっぱい", "れいぷ", "ちかん", "ころせ", "きちがい", "がいじ", "しょうがい"
+  ]
+}
