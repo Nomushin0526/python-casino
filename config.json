@@ -27,10 +27,7 @@
     "leverages": [1, 2, 5, 10],
     "betPresets": [10, 20, 50, 100],
     "vrBonus": 50,
-    "vrBonusPerDay": 1,
-    "revive": 50,
-    "revivePerDay": 1,
-    "reviveOnlyWhenZero": true
+    "vrBonusPerDay": 1
   },
 
   "session": {

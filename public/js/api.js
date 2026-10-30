@@ -61,6 +61,7 @@ export const api = {
     api.session = null;
   },
   heartbeat: () => api.call('/api/heartbeat'),
+  restart: () => api.call('/api/restart'),
   profile: (p) => api.call('/api/profile', p),
   startRound: (game, bet, leverage) => api.call('/api/round/start', { game, bet, leverage }),
   finishRound: (roundId, result) => api.call('/api/round/finish', { roundId, result }),

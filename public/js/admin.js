@@ -10,7 +10,7 @@ let tab = 'players';
 let current = null; // 表示中のプレイヤーID
 
 const GAME_LABEL = {
-  initial: '初期配布', vr_bonus: 'VRボーナス', revive: '復活', admin_adjust: '管理:調整', admin_set: '管理:残高設定', admin_revert: '管理:取消',
+  initial: '初期配布', vr_bonus: 'VRボーナス', revive: '復活', restart: 'やり直し', admin_adjust: '管理:調整', admin_set: '管理:残高設定', admin_revert: '管理:取消',
 };
 const gameName = (g) => GAME_LABEL[g] || config?.games[g]?.name || g;
 
@@ -87,7 +87,7 @@ function renderPlayers(body) {
       el('div.panel.col',
         el('h2', 'プレイヤーを探す'),
         el('div.row', input, el('button.btn.small', { on: { click: search } }, '検索')),
-        el('div.note', 'VRボーナス・復活のときは、お客さんに登録した名前を聞いて検索してください。')),
+        el('div.note', 'VRボーナスのときは、お客さんに登録した名前を聞いて検索してください。')),
       el('div.panel', el('h2', 'プレイヤー一覧（最近の順）'), list)),
     detail));
   loadList(list, '', open);
@@ -138,12 +138,10 @@ async function loadDetail(detail, id) {
         el('dt', '最高チップ'), el('dd.num', fmt(p.peakChips)),
         el('dt', 'ロスカット'), el('dd', `${p.losscutCount} 回`),
         el('dt', '本日VR'), el('dd', `${p.vrToday} / ${c.vrBonusPerDay}`),
-        el('dt', '本日復活'), el('dd', `${p.reviveToday} / ${c.revivePerDay}`),
         el('dt', 'かんたん'), el('dd', p.easyMode ? 'ON' : 'OFF'))),
     el('div.btn-row',
-      el('button.btn.green.big', { disabled: p.vrToday >= c.vrBonusPerDay, on: { click: () => chips('vr_bonus') } }, `🥽 VRボーナス +${c.vrBonus}`),
-      el('button.btn.blue.big', { disabled: p.reviveToday >= c.revivePerDay || (c.reviveOnlyWhenZero && p.chips > 0), on: { click: () => chips('revive') } }, `💊 復活 +${c.revive}`)),
-    el('div.note', `VRボーナスは1日${c.vrBonusPerDay}回、復活は1日${c.revivePerDay}回${c.reviveOnlyWhenZero ? '（チップ0のときだけ）' : ''}まで。`),
+      el('button.btn.green.big', { disabled: p.vrToday >= c.vrBonusPerDay, on: { click: () => chips('vr_bonus') } }, `🥽 VRボーナス +${c.vrBonus}`)),
+    el('div.note', `VRボーナスは1日${c.vrBonusPerDay}回まで。チップが0になった人は、ゲーム画面の「最初からやり直す」で自分で再スタートできます。`),
     el('h2', { style: { marginTop: '16px' } }, 'パスワードを忘れたとき'),
     el('div.btn-row', newPw,
       el('button.btn.small', { on: { click: () => act(() => adm('POST', `/api/admin/players/${p.id}/password`, { password: newPw.value }), `パスワードを「${newPw.value}」に変更しました。本人に伝えてください`) } }, 'パスワードを再設定')),

@@ -102,8 +102,18 @@ test('ラウンド精算・ロスカット', async () => {
   assert.equal(f.body.player.peakChips, 160);
   assert.equal(f.body.player.losscutCount, 1);
 
+  // チップ0のまま遊び続けることはできない
+  assert.equal((await post('/api/round/start', { ...auth, game: 'blackjack', bet: 10, leverage: 1 })).status, 400);
+  // ログインし直しても 0 のまま（やり直しを案内）
   const again = await login('さぶろう', 'C');
   assert.equal(again.body.status, 'no_chips');
+  const auth2 = { playerId: player.id, token: again.body.token };
+  // 最初からやり直す：チップは初期値に戻り、最高記録は残る
+  const rs = await post('/api/restart', auth2);
+  assert.equal(rs.status, 200);
+  assert.equal(rs.body.player.chips, 100);
+  assert.equal(rs.body.player.peakChips, 160);
+  assert.equal((await post('/api/restart', auth2)).status, 400); // チップがあるうちはできない
 });
 
 test('途中放棄は負け扱い・ホールデムの持ち込み精算', async () => {
@@ -118,7 +128,7 @@ test('途中放棄は負け扱い・ホールデムの持ち込み精算', async
   assert.equal(f.body.delta, 30); // (35-20)*2
 });
 
-test('管理画面：VRボーナス1日1回・復活・取消・パスワード再設定・名前変更', async () => {
+test('管理画面：VRボーナス1日1回・取消・パスワード再設定・名前変更', async () => {
   assert.equal((await post('/api/admin/login', { password: 'x' })).status, 401);
   const { body: { token } } = await post('/api/admin/login', { password: 'pw' });
   const h = { 'x-admin-token': token };
@@ -130,12 +140,7 @@ test('管理画面：VRボーナス1日1回・復活・取消・パスワード�
   assert.equal(r.body.delta, 50);
   r = await post(`/api/admin/players/${hanako}/chips`, { kind: 'vr_bonus' }, h);
   assert.equal(r.status, 400);
-  r = await post(`/api/admin/players/${hanako}/chips`, { kind: 'revive' }, h);
-  assert.equal(r.status, 400); // 0ではない
-  const saburo = encodeURIComponent('さぶろう');
-  r = await post(`/api/admin/players/${saburo}/chips`, { kind: 'revive' }, h);
-  assert.equal(r.body.player.chips, 50);
-  assert.equal((await post(`/api/admin/players/${saburo}/chips`, { kind: 'revive' }, h)).status, 400);
+  assert.equal((await post(`/api/admin/players/${hanako}/chips`, { kind: 'revive' }, h)).status, 400); // 復活は廃止
   assert.equal((await post(`/api/admin/players/${encodeURIComponent('いない人')}/chips`, { kind: 'vr_bonus' }, h)).status, 404);
 
   const detail = await get(`/api/admin/players/${hanako}`, h);

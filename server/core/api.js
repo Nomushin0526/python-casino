@@ -106,14 +106,11 @@ export function createApi(cfg, db, { now = () => Date.now(), adminPassword = cfg
       }
     }
     await forfeitPending(p.id, 'relogin');
-    const fresh = await getPlayer(p.id);
-    if (fresh.chips <= 0) {
-      await releaseLock(p.id);
-      return { status: 'no_chips', player: playerView(fresh) };
-    }
     const token = randomHex(16);
     await db.run('UPDATE players SET active_session = ?, session_token = ?, session_seen_at = ? WHERE id = ?', terminalId, token, now(), p.id);
-    return { status: 'ok', token, player: playerView(await getPlayer(p.id)) };
+    const fresh = await getPlayer(p.id);
+    // チップが0なら「最初からやり直す」を案内する（ログインはしたまま）
+    return { status: fresh.chips <= 0 ? 'no_chips' : 'ok', token, player: playerView(fresh) };
   }
 
   // ---------- 管理 ----------
@@ -128,7 +125,6 @@ export function createApi(cfg, db, { now = () => Date.now(), adminPassword = cfg
     createdAt: p.created_at,
     updatedAt: p.updated_at,
     vrToday: await countToday(p.id, 'vr_bonus'),
-    reviveToday: await countToday(p.id, 'revive'),
     pendingRound: (await pendingRound(p.id))?.game || null,
   };
 
@@ -247,7 +243,6 @@ export function createApi(cfg, db, { now = () => Date.now(), adminPassword = cfg
       detail: { result, label: outcome.label }, terminal: r.terminal, countLosscut: true,
       extra: [['DELETE FROM rounds WHERE id = ?', [r.id]]],
     });
-    if (out.player.chips <= 0) await releaseLock(p.id);
     return {
       delta: out.delta, multiplier: outcome.multiplier, label: outcome.label, bet: r.bet, leverage: r.leverage,
       losscut: out.player.chips <= 0, player: playerView(out.player),
@@ -258,8 +253,15 @@ export function createApi(cfg, db, { now = () => Date.now(), adminPassword = cfg
     const p = await auth(body);
     const out = await forfeitPending(p.id, body.reason === 'idle' ? 'idle' : 'abort');
     const cur = await getPlayer(p.id);
-    if (cur.chips <= 0) await releaseLock(p.id);
     return { delta: out ? out.delta : 0, losscut: cur.chips <= 0, player: playerView(cur) };
+  });
+
+  // チップを全部失ったら、最初のチップからやり直す（最高記録はそのまま残る）
+  route('POST', '/restart', async ({ body }) => {
+    const p = await auth(body);
+    if (p.chips > 0) throw new ApiError(400, 'NOT_ZERO', 'チップが残っているのでやり直しはできません');
+    const out = await applyDelta(p.id, { game: 'restart', delta: cfg.chips.initial, terminal: p.active_session });
+    return { player: playerView(out.player) };
   });
 
   route('GET', '/ranking', async ({ joinUrl }) => {
@@ -322,11 +324,6 @@ export function createApi(cfg, db, { now = () => Date.now(), adminPassword = cfg
       if (await countToday(p.id, 'vr_bonus') >= c.vrBonusPerDay) throw new ApiError(400, 'LIMIT', 'VRボーナスは本日付与済みです');
       game = 'vr_bonus';
       delta = c.vrBonus;
-    } else if (kind === 'revive') {
-      if (c.reviveOnlyWhenZero && p.chips > 0) throw new ApiError(400, 'NOT_ZERO', '復活はチップが0のときだけ使えます');
-      if (await countToday(p.id, 'revive') >= c.revivePerDay) throw new ApiError(400, 'LIMIT', '本日の復活は使用済みです');
-      game = 'revive';
-      delta = c.revive;
     } else if (kind === 'adjust') {
       delta = Math.trunc(Number(body.amount));
       if (!Number.isFinite(delta) || delta === 0) throw new ApiError(400, 'BAD_AMOUNT', '増減額を入力してください');

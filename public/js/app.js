@@ -138,7 +138,7 @@ setInterval(async () => {
     showStandby();
     return;
   }
-  if (!state.config || !state.player || state.screen === 'standby' || state.screen === 'losscut') return;
+  if (!state.config || !state.player || state.screen === 'standby') return;
   const { idleSec, idleWarnSec } = state.config.session;
   const idle = (Date.now() - state.lastInput) / 1000;
   if (idle >= idleSec) {
@@ -292,19 +292,16 @@ function showAuthForm(mode) {
 
 async function afterAuth(r, isNew) {
   state.player = r.player;
-  if (r.status === 'no_chips') {
-    showMessage({
-      icon: '💸',
-      title: 'チップがありません',
-      text: `${r.player.nickname} さんはロスカット中です。受付で「復活」（1日1回）を受けると、また遊べます。`,
-      button: 'トップへ',
-      onClose: resetToStandby,
-      auto: 10,
-    });
-    return;
-  }
   startHeartbeat();
   state.lastInput = Date.now();
+  if (r.status === 'no_chips') {
+    const node = el('div.screen', el('div.panel.msgbox',
+      el('div.big-icon', '💸'), el('h2', 'チップがありません'),
+      el('p', `${r.player.nickname} さんはロスカット中です。最初からやり直せます（最高記録 ${fmt(r.player.peakChips)} チップはランキングに残ります）。`),
+      restartButtons()));
+    setScreen(node, 'message');
+    return;
+  }
   if (isNew) {
     sound.win();
     toast(`ようこそ、${r.player.nickname} さん！ ${fmt(r.player.chips)} チップをプレゼント！`, { ms: 4000 });
@@ -312,17 +309,6 @@ async function afterAuth(r, isNew) {
     toast(`おかえりなさい、${r.player.nickname} さん！`);
   }
   showMenu();
-}
-
-function showMessage({ icon, title, text, button = 'OK', onClose, auto }) {
-  let timer = null;
-  const close = () => { clearTimeout(timer); onClose(); };
-  const node = el('div.screen', el('div.panel.msgbox',
-    el('div.big-icon', icon || 'ℹ️'), el('h2', title), el('p', text),
-    el('button.btn.big', { on: { click: close } }, button)));
-  setScreen(node, 'message');
-  if (auto) timer = setTimeout(close, auto * 1000);
-  state.cleanup = () => clearTimeout(timer);
 }
 
 // ---------- ゲーム選択 ----------
@@ -562,10 +548,29 @@ async function showResult(game, r) {
 }
 
 // ---------- ロスカット ----------
+// 「最初からやり直す」「おわる」ボタン
+function restartButtons() {
+  const restart = async () => {
+    try {
+      const res = await api.restart();
+      state.player = res.player;
+      sound.bigWin();
+      coinShower(30);
+      toast(`${fmt(res.player.chips)} チップで再スタート！`, { ms: 3500 });
+      showMenu();
+    } catch (e) { handleError(e); }
+  };
+  return el('div.row', { style: { justifyContent: 'center', marginTop: '16px', flexWrap: 'wrap' } },
+    el('button.btn.secondary.big', { on: { click: endSession } }, 'おわる'),
+    el('button.btn.big', { on: { click: restart } }, `最初からやり直す（${fmt(state.config.chips.initial)}チップ）`));
+}
+
 function showLosscut(r) {
   state.screen = 'losscut';
-  stopHeartbeat();
+  state.lastInput = Date.now();
   sound.losscut();
+  // 演出が終わってからボタンを出す
+  const buttons = el('div', { style: { visibility: 'hidden', position: 'relative', zIndex: 2 } }, restartButtons());
   const chart = el('canvas.lc-chart', { width: 600, height: 160 });
   const node = el('div.screen.losscut.center',
     el('div.tape', { style: { top: '2%', transform: 'rotate(-3deg)' } }, 'LOSS CUT ⚠ LOSS CUT ⚠ LOSS CUT ⚠ LOSS CUT ⚠ LOSS CUT ⚠ LOSS CUT'),
@@ -573,7 +578,7 @@ function showLosscut(r) {
     el('div.lc-sub', '証拠金（チップ）が尽きました…'),
     chart,
     el('div.lc-sub', `最高記録 `, el('b.gold.num', fmt(r.player.peakChips)), ' チップ はランキングに残ります'),
-    el('div.muted', { style: { fontSize: '22px', marginTop: '12px' } }, '受付で1日1回「復活」できます'),
+    buttons,
     el('div.tape', { style: { bottom: '1%', transform: 'rotate(2deg)' } }, '⚠ MARGIN CALL ⚠ MARGIN CALL ⚠ MARGIN CALL ⚠ MARGIN CALL ⚠ MARGIN CALL'));
   clear($screen, node);
   renderTopbar();
@@ -598,9 +603,8 @@ function showLosscut(r) {
     if (++k < pts.length) requestAnimationFrame(draw);
   };
   draw();
-  api.session = null; // サーバー側でロックは解除済み
-  const timer = setTimeout(resetToStandby, 9000);
-  node.addEventListener('click', () => { clearTimeout(timer); resetToStandby(); });
+  const timer = setTimeout(() => { buttons.style.visibility = 'visible'; }, 2500);
+  state.cleanup = () => clearTimeout(timer);
 }
 
 // ---------- 起動 ----------
