@@ -1,5 +1,5 @@
 {
-  "_comment": "数値はここで調整できます。当日用のパスワード等は config.local.json に同じ形で書くと上書きされます（Git管理外）。変更後はサーバーを再起動してください。",
+  "_comment": "数値はここで調整できます。当日用の管理パスワード等は config.local.json に同じ形で書くと上書きされます（Git管理外）。変更後はサーバーを再起動してください。",
 
   "server": {
     "port": 3000,
@@ -14,12 +14,10 @@
     "sessionHours": 12
   },
 
-  "card": {
-    "_comment": "QRの中身は「P0001-ABCD」の形式（IDと確認コード）。secretを変えると既存カードが使えなくなるので、カード印刷後は変更しないこと。",
-    "idPrefix": "P",
-    "idDigits": 4,
-    "secret": "change-me-before-printing",
-    "requireCheckCode": true
+  "account": {
+    "_comment": "新規登録とログインに使うパスワードの長さ",
+    "minLength": 4,
+    "maxLength": 16
   },
 
   "chips": {
@@ -35,7 +33,7 @@
   },
 
   "session": {
-    "_comment": "lockTimeoutSec: この秒数ハートビートが無ければ端末ロックを自動解除。idleSec: 無操作でこの秒数たつと待機画面に戻る",
+    "_comment": "lockTimeoutSec: この秒数ハートビートが無ければ端末ロックを自動解除。idleSec: 無操作でこの秒数たつとトップ画面に戻る",
     "lockTimeoutSec": 90,
     "heartbeatSec": 15,
     "idleSec": 90,

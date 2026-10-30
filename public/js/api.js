@@ -41,8 +41,13 @@ export function terminalId() {
 export const api = {
   session: null, // { playerId, token }
   config: () => request('GET', '/api/config'),
-  async login(code) {
-    const r = await request('POST', '/api/login', { code, terminalId: terminalId() });
+  async login(username, password) {
+    const r = await request('POST', '/api/login', { username, password, terminalId: terminalId() });
+    api.session = r.token ? { playerId: r.player.id, token: r.token } : null;
+    return r;
+  },
+  async register(username, password, easyMode) {
+    const r = await request('POST', '/api/register', { username, password, easyMode, terminalId: terminalId() });
     api.session = r.token ? { playerId: r.player.id, token: r.token } : null;
     return r;
   },

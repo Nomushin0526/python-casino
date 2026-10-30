@@ -99,7 +99,6 @@ body {
 .chips-float:nth-child(4n+2) { color: #ff4d5e; }
 .chips-float:nth-child(4n+3) { color: #4da3ff; }
 .chips-float:nth-child(4n+4) { color: #3ddc84; }
-.scanbox { box-shadow: 0 0 0 4px rgba(246,196,83,.25), 0 0 50px rgba(246,196,83,.45), inset 0 0 30px rgba(0,0,0,.6); }
 
 /* ---------- カジノチップ（装飾） ---------- */
 .deco-chip {
@@ -225,3 +224,41 @@ body {
 }
 .bet-amount small { -webkit-text-fill-color: var(--muted); }
 .sticky-actions { position: sticky; bottom: -24px; padding: 14px 0; margin-bottom: -10px; background: linear-gradient(180deg, transparent, rgba(18,16,40,.95) 30%); z-index: 2; }
+
+/* ---------- トップ画面：はじめて / つづきから ---------- */
+.entry-buttons { display: flex; gap: 28px; margin: 18px 0 8px; }
+.entry-btn {
+  position: relative; overflow: hidden; cursor: pointer; border: 0; border-radius: 22px; width: 340px; padding: 26px 20px 22px;
+  color: #fff; font-family: inherit; text-align: center;
+  box-shadow: 0 8px 0 rgba(0,0,0,.35), 0 18px 40px rgba(0,0,0,.45);
+  transition: transform .12s, box-shadow .12s;
+  animation: card-in .5s ease backwards;
+}
+.entry-btn.new { background: linear-gradient(160deg, #ff7ac6, #e0287f 55%, #8d0f4f); }
+.entry-btn.cont { background: linear-gradient(160deg, #7cc4ff, #2a7fe0 55%, #123f8a); animation-delay: .1s; }
+.entry-btn:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 12px 0 rgba(0,0,0,.35), 0 0 40px rgba(255,255,255,.25); }
+.entry-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+.entry-btn::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 35%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.4), transparent);
+  transform: skewX(-20deg); animation: btn-shine 3.5s ease-in-out infinite;
+}
+.entry-icon { font-size: 44px; line-height: 1; margin-bottom: 6px; }
+.entry-main { font-size: 40px; font-weight: 900; letter-spacing: .08em; text-shadow: 0 3px 0 rgba(0,0,0,.25); }
+.entry-sub { font-size: 16px; opacity: .92; margin-top: 4px; }
+.top3 { display: flex; gap: 18px; align-items: center; font-size: 18px; min-height: 28px; }
+.top3-item { background: rgba(0,0,0,.35); border: 1px solid rgba(246,196,83,.3); border-radius: 999px; padding: 4px 14px; }
+.top3-item b { color: var(--gold); }
+
+/* ---------- 新規登録 / ログイン ---------- */
+.auth-panel { width: min(620px, 100%); display: flex; flex-direction: column; gap: 6px; }
+.auth-panel h2 { margin-bottom: 4px; }
+.field-label { font-size: 15px; color: var(--muted); margin-top: 8px; }
+.auth-input { width: 100% !important; font-size: 26px !important; padding: 12px 16px !important; }
+.auth-input.secret { -webkit-text-security: disc; text-security: disc; letter-spacing: .1em; }
+.field-msg { font-size: 15px; min-height: 20px; color: var(--muted); }
+.field-msg.ok { color: var(--green); font-weight: 700; }
+.field-msg.ng { color: var(--red); font-weight: 700; }
+.show-pw { font-size: 15px; color: var(--muted); cursor: pointer; margin-top: 4px; }
+.auth-panel .toggle { align-self: flex-start; margin-top: 8px; }
+.switch-link { color: #9fd0ff; font-size: 16px; }

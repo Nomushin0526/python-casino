@@ -1,7 +1,6 @@
 // 管理画面
 import { request } from './api.js';
 import { el, clear, fmt, signed, toast } from './ui.js';
-import { QrScanner } from './qr.js';
 
 const root = document.getElementById('admin');
 let token = null;
@@ -9,7 +8,6 @@ try { token = localStorage.getItem('casino.adminToken'); } catch { /* ignore */ 
 let config = null;
 let tab = 'players';
 let current = null; // 表示中のプレイヤーID
-let scanner = null;
 
 const GAME_LABEL = {
   initial: '初期配布', vr_bonus: 'VRボーナス', revive: '復活', admin_adjust: '管理:調整', admin_set: '管理:残高設定', admin_revert: '管理:取消',
@@ -33,7 +31,6 @@ function err(e) {
 
 // ---------- ログイン ----------
 function renderLogin() {
-  stopScanner();
   const pw = el('input', { type: 'password', placeholder: 'パスワード', style: { width: '100%' } });
   const go = async () => {
     try {
@@ -51,7 +48,7 @@ function renderLogin() {
 // ---------- 共通レイアウト ----------
 function render() {
   const tabs = [
-    ['players', 'プレイヤー / チップ付与'], ['history', '全履歴'], ['stats', '状況'], ['cards', 'QRカード印刷'], ['data', 'バックアップ / リセット'],
+    ['players', 'プレイヤー / チップ付与'], ['history', '全履歴'], ['stats', '状況'], ['data', 'バックアップ / リセット'],
   ];
   const body = el('div');
   clear(root, el('div.admin-wrap',
@@ -60,69 +57,59 @@ function render() {
       el('button.btn.secondary.small', { on: { click: () => { token = null; try { localStorage.removeItem('casino.adminToken'); } catch { /* ignore */ } renderLogin(); } } }, 'ログアウト')),
     el('div.tabs', tabs.map(([id, label]) => el('button', { class: tab === id ? 'on' : '', on: { click: () => { tab = id; render(); } } }, label))),
     body));
-  stopScanner();
-  ({ players: renderPlayers, history: renderHistory, stats: renderStats, cards: renderCards, data: renderData })[tab](body);
-}
-
-function stopScanner() {
-  scanner?.stop();
-  scanner = null;
+  ({ players: renderPlayers, history: renderHistory, stats: renderStats, data: renderData })[tab](body);
 }
 
 // ---------- プレイヤー ----------
 function renderPlayers(body) {
-  const input = el('input', { placeholder: 'ID / QR / ニックネーム', style: { flex: 1 } });
-  const video = el('video', { autoplay: true, muted: true, playsinline: true });
-  const nocam = el('div.nocam.hidden');
+  const input = el('input', { placeholder: '名前で検索（一部だけでもOK）', style: { flex: 1, fontSize: '20px' } });
   const list = el('div.scroll');
-  const detail = el('div.panel', el('div.muted', '左でプレイヤーを選ぶか、QRを読み取ってください'));
+  const detail = el('div.panel', el('div.muted', '左で名前を検索して、プレイヤーを選んでください'));
 
-  const open = async (idOrCode) => {
+  const open = async (id) => {
     try {
-      current = idOrCode;
-      await loadDetail(detail, idOrCode, true);
-      input.value = '';
+      current = id;
+      await loadDetail(detail, id);
     } catch (e) { err(e); }
   };
-  input.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    const v = input.value.trim();
-    if (/^[A-Za-z]*\d+([-_ ]?[A-Za-z0-9]{4})?$/.test(v.normalize('NFKC'))) open(v);
-    else loadList(list, v, open);
-  });
+  const search = async () => {
+    const q = input.value.trim();
+    const players = await loadList(list, q, open);
+    // 1人に絞れたらそのまま開く
+    if (q && players?.length === 1) open(players[0].id);
+  };
+  let t = null;
+  input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(search, 250); });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) search(); });
 
   clear(body, el('div.grid2',
     el('div.col',
       el('div.panel.col',
-        el('h2', 'QRを読み取る'),
-        el('div.mini-scan', video, nocam),
-        el('div.row', input, el('button.btn.small', { on: { click: () => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })) } }, '検索')),
-        el('div.note', 'IDだけ（例: P0012 や 12）でも開けます。名前で検索すると一覧を絞り込みます。')),
-      el('div.panel', el('h2', '最近のプレイヤー'), list)),
+        el('h2', 'プレイヤーを探す'),
+        el('div.row', input, el('button.btn.small', { on: { click: search } }, '検索')),
+        el('div.note', 'VRボーナス・復活のときは、お客さんに登録した名前を聞いて検索してください。')),
+      el('div.panel', el('h2', 'プレイヤー一覧（最近の順）'), list)),
     detail));
-
-  scanner = new QrScanner(video, (text) => open(text));
-  scanner.start().catch((e) => {
-    nocam.classList.remove('hidden');
-    nocam.textContent = e.message || 'カメラが使えません（IDを入力してください）';
-  });
   loadList(list, '', open);
-  if (current) loadDetail(detail, current, false).catch(() => {});
+  if (current) loadDetail(detail, current).catch(() => {});
+  setTimeout(() => input.focus(), 50);
 }
 
 async function loadList(list, q, open) {
   try {
     const r = await adm('GET', `/api/admin/players?q=${encodeURIComponent(q)}`);
-    clear(list, el('table',
-      el('thead', el('tr', el('th', 'ID'), el('th', '名前'), el('th', 'チップ'), el('th', '最高'), el('th', '状態'))),
+    clear(list, r.players.length ? el('table',
+      el('thead', el('tr', el('th', '名前'), el('th', 'チップ'), el('th', '最高'), el('th', '状態'))),
       el('tbody', r.players.map((p) => el('tr.clickable', { on: { click: () => open(p.id) } },
-        el('td', p.id), el('td', p.nickname || '（未登録）'), el('td.num', fmt(p.chips)), el('td.num', fmt(p.peakChips)),
-        el('td', p.activeSession ? `🎮 ${p.activeSession}` : p.chips === 0 ? '💀 0' : ''))))));
-  } catch (e) { err(e); }
+        el('td', el('b', p.nickname || '（名前なし）')), el('td.num', fmt(p.chips)), el('td.num', fmt(p.peakChips)),
+        el('td', p.activeSession ? `🎮 ${p.activeSession}` : p.chips === 0 ? '💀 0' : '')))))
+      : el('div.muted', q ? `「${q}」に一致する名前はありません` : 'まだ誰も登録していません'));
+    return r.players;
+  } catch (e) { err(e); return null; }
 }
 
-async function loadDetail(detail, idOrCode, create) {
-  const r = await adm('GET', `/api/admin/players/${encodeURIComponent(idOrCode)}${create ? '?create=1' : ''}`);
+async function loadDetail(detail, id) {
+  const r = await adm('GET', `/api/admin/players/${encodeURIComponent(id)}`);
   const p = r.player;
   current = p.id;
   const c = config.chips;
@@ -130,19 +117,20 @@ async function loadDetail(detail, idOrCode, create) {
   const note = el('input', { placeholder: 'メモ（任意）', style: { width: '200px' } });
   const nick = el('input', { value: p.nickname || '', style: { width: '180px' } });
   const peak = el('input', { type: 'number', value: p.peakChips, style: { width: '120px' } });
+  const newPw = el('input', { placeholder: '新しいパスワード', autocomplete: 'off', style: { width: '180px' } });
 
   const act = async (fn, okMsg) => {
     try {
       const res = await fn();
       if (okMsg) toast(typeof okMsg === 'function' ? okMsg(res) : okMsg);
-      await loadDetail(detail, p.id, false);
+      await loadDetail(detail, p.id);
     } catch (e) { err(e); }
   };
   const chips = (kind, extra = {}) => act(() => adm('POST', `/api/admin/players/${p.id}/chips`, { kind, note: note.value, ...extra }),
     (res) => `${p.nickname || p.id}: ${signed(res.delta)} → ${fmt(res.player.chips)}`);
 
   clear(detail,
-    el('div.row', el('h2', { style: { margin: 0 } }, `${p.id}　${p.nickname || '（ニックネーム未登録）'}`), el('div.spacer'),
+    el('div.row', el('h2', { style: { margin: 0 } }, p.nickname || '（名前なし）'), el('span.muted', p.id), el('div.spacer'),
       p.activeSession ? el('span.warn', `プレイ中: ${p.activeSession}${p.pendingRound ? `（${gameName(p.pendingRound)}）` : ''}`) : null),
     el('div.row', { style: { alignItems: 'flex-end', gap: '30px', margin: '10px 0' } },
       el('div', el('div.muted', '所持チップ'), el('div.big-chips.num', fmt(p.chips))),
@@ -156,6 +144,10 @@ async function loadDetail(detail, idOrCode, create) {
       el('button.btn.green.big', { disabled: p.vrToday >= c.vrBonusPerDay, on: { click: () => chips('vr_bonus') } }, `🥽 VRボーナス +${c.vrBonus}`),
       el('button.btn.blue.big', { disabled: p.reviveToday >= c.revivePerDay || (c.reviveOnlyWhenZero && p.chips > 0), on: { click: () => chips('revive') } }, `💊 復活 +${c.revive}`)),
     el('div.note', `VRボーナスは1日${c.vrBonusPerDay}回、復活は1日${c.revivePerDay}回${c.reviveOnlyWhenZero ? '（チップ0のときだけ）' : ''}まで。`),
+    el('h2', { style: { marginTop: '16px' } }, 'パスワードを忘れたとき'),
+    el('div.btn-row', newPw,
+      el('button.btn.small', { on: { click: () => act(() => adm('POST', `/api/admin/players/${p.id}/password`, { password: newPw.value }), `パスワードを「${newPw.value}」に変更しました。本人に伝えてください`) } }, 'パスワードを再設定')),
+    el('div.note', '本人確認（最近遊んだゲーム・おおよそのチップ数など）をしてから再設定してください。'),
     el('h2', { style: { marginTop: '16px' } }, '残高の修正'),
     el('div.btn-row', amount, note,
       el('button.btn.small', { on: { click: () => chips('adjust', { amount: Number(amount.value) }) } }, '増減する'),
@@ -167,7 +159,7 @@ async function loadDetail(detail, idOrCode, create) {
       el('button.btn.small.secondary', { on: { click: () => act(() => adm('POST', `/api/admin/players/${p.id}/update`, { easyMode: !p.easyMode }), 'かんたんモードを切り替えました') } }, `かんたんモードを${p.easyMode ? 'OFF' : 'ON'}`),
       el('button.btn.small.danger', { on: { click: () => { if (confirm('端末のロックを解除しますか？（プレイ中のゲームは負け扱い）')) act(() => adm('POST', `/api/admin/players/${p.id}/unlock`), 'ロックを解除しました'); } } }, 'ロック解除')),
     el('h2', { style: { marginTop: '16px' } }, '履歴'),
-    el('div.scroll', txTable(r.transactions, () => loadDetail(detail, p.id, false))));
+    el('div.scroll', txTable(r.transactions, () => loadDetail(detail, p.id))));
 }
 
 function txTable(rows, reload, showPlayer = false) {
@@ -177,7 +169,7 @@ function txTable(rows, reload, showPlayer = false) {
       let detail = '';
       try { const d = JSON.parse(t.detail || 'null'); detail = d?.label || d?.note || (d?.forfeit ? `途中終了(${d.forfeit})` : d?.revertOf ? `#${d.revertOf} の取消` : ''); } catch { /* ignore */ }
       return el('tr', { class: t.reverted_by ? 'reverted' : '' },
-        el('td', t.id), el('td', t.created_at.slice(5)), showPlayer ? el('td', `${t.player_id} ${t.nickname || ''}`) : null,
+        el('td', t.id), el('td', t.created_at.slice(5)), showPlayer ? el('td', t.nickname || t.player_id) : null,
         el('td', gameName(t.game), detail ? el('span.muted', ` ${detail}`) : null),
         el('td.num', t.bet ?? ''), el('td.num', t.leverage ? `×${t.leverage}` : ''), el('td.num', t.multiplier ?? ''),
         el('td.num', { class: t.delta > 0 ? 'plus' : t.delta < 0 ? 'minus' : '' }, signed(t.delta)),
@@ -224,18 +216,6 @@ async function renderStats(body) {
           el('tbody', r.byGame.map((g) => el('tr', el('td', gameName(g.game)), el('td.num', fmt(g.plays)), el('td.num', fmt(g.today)), el('td.num', signed(g.net)))))))),
       el('div.note', { style: { marginTop: '10px' } }, `DB: ${r.dbFile}`));
   } catch (e) { err(e); }
-}
-
-// ---------- カード印刷 ----------
-function renderCards(body) {
-  const from = el('input', { type: 'number', value: 1, min: 1, style: { width: '100px' } });
-  const count = el('input', { type: 'number', value: 50, min: 1, max: 500, style: { width: '100px' } });
-  clear(body, el('div.panel.col', { style: { maxWidth: '640px' } },
-    el('h2', 'QRカードを印刷'),
-    el('div.row', '開始番号', from, '枚数', count,
-      el('button.btn', { on: { click: () => window.open(`/cards.html?from=${from.value}&count=${count.value}`, '_blank') } }, '印刷用ページを開く')),
-    el('div.note', 'A4用紙1枚に10枚（名刺サイズ 91×55mm）。印刷時は「余白なし」「倍率100%」にしてください。'),
-    el('div.note', 'カードの確認コードは config の card.secret から作られます。印刷後に secret を変えるとカードが使えなくなるので注意。')));
 }
 
 // ---------- バックアップ / リセット ----------

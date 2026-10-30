@@ -11,11 +11,9 @@ if [ ! -d "/Applications/Google Chrome.app" ]; then
   echo "[エラー] Google Chrome が見つかりません。https://www.google.com/chrome/ からインストールしてください"
   read -r; exit 1
 fi
-# --unsafely-treat-insecure-origin-as-secure : http 接続でもカメラを使えるようにする
 open -na "Google Chrome" --args \
   --user-data-dir="$PWD/.browser-game" \
-  --no-first-run --kiosk \
+  --no-first-run --kiosk --disable-save-password-bubble \
   --autoplay-policy=no-user-gesture-required \
   --overscroll-history-navigation=0 \
-  --unsafely-treat-insecure-origin-as-secure="$SERVER" \
   "$SERVER/?terminal=$TERMINAL"

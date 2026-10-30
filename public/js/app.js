@@ -1,8 +1,7 @@
 // ゲーム端末のメイン（画面遷移・セッション・無操作タイムアウト）
-import { api, ApiError, terminalId } from './api.js';
+import { api, ApiError, terminalId, request } from './api.js';
 import { el, clear, fmt, signed, multLabel, toast, countUp, confetti, coinShower, sleep, showOverlay } from './ui.js';
 import { sound } from './sound.js';
-import { QrScanner } from './qr.js';
 import { betRange } from './lib/settle.js';
 import pinball from './games/pinball.js';
 import blackjack from './games/blackjack.js';
@@ -134,6 +133,11 @@ function hideIdle() {
 }
 
 setInterval(async () => {
+  // 登録・ログイン画面で放置されたらトップに戻す（入力途中のパスワードを残さない）
+  if (['register', 'login'].includes(state.screen) && !state.player && (Date.now() - state.lastInput) / 1000 > state.config.session.idleSec) {
+    showStandby();
+    return;
+  }
   if (!state.config || !state.player || state.screen === 'standby' || state.screen === 'losscut') return;
   const { idleSec, idleWarnSec } = state.config.session;
   const idle = (Date.now() - state.lastInput) / 1000;
@@ -159,72 +163,141 @@ setInterval(async () => {
   }
 }, 1000);
 
-// ---------- 待機画面 ----------
-let scanner = null;
-
-function showStandby() {
-  state.player = null;
-  const video = el('video', { autoplay: true, muted: true, playsinline: true });
-  const nocam = el('div.nocam.hidden');
-  const err = el('div.error-text');
-  const input = el('input', { placeholder: '例: P0001-ABCD', autocomplete: 'off', spellcheck: false });
-  let busy = false;
-
-  const submit = async (code) => {
-    if (busy || !code) return;
-    busy = true;
-    err.textContent = '';
-    sound.scan();
-    try {
-      await doLogin(code);
-    } catch (e) {
-      sound.error();
-      err.textContent = e.message;
-      input.value = '';
-      busy = false;
-    }
-  };
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') submit(input.value.trim());
-  });
-
+// ---------- トップ画面 ----------
+function decorations() {
   const floats = Array.from({ length: 8 }, (_, i) => el('div.chips-float', {
     style: { left: (i * 13 + 4) + '%', top: (i % 2 ? 15 : 70) + '%', animationDelay: i * 0.7 + 's' },
   }, ['♠', '♥', '♦', '♣'][i % 4]));
-
   const decoChips = [['8%', '62%', '#c4213a', '0s'], ['84%', '18%', '#1f6fd1', '1.5s'], ['88%', '70%', '#1fa75a', '3s'], ['6%', '14%', '#8a5dd0', '2.2s']]
     .map(([left, top, c, d]) => el('div.deco-chip', { style: { left, top, '--c': c, animationDelay: d } }));
-  const node = el('div.screen.standby',
-    el('div.rays'), floats, decoChips,
-    el('div.title', 'IT部 CASINO'),
-    el('div.sub', 'カードの QR コードをカメラにかざしてね'),
-    el('div.scanbox', video, el('div.frame'), el('div.scanline'), nocam),
-    el('div.manual.muted', el('span', '読めないときは入力 →'), input,
-      el('button.btn.small', { on: { click: () => submit(input.value.trim()) } }, 'OK')),
-    err,
-    el('div.muted', { style: { fontSize: '14px' } }, `端末: ${terminalId()}　チップに換金性はありません`),
-  );
-  setScreen(node, 'standby');
-  state.cleanup = () => { scanner?.stop(); scanner = null; };
-
-  scanner = new QrScanner(video, (text) => submit(text));
-  scanner.start().catch((e) => {
-    nocam.classList.remove('hidden');
-    nocam.textContent = (e && e.name === 'NotAllowedError') ? 'カメラの使用が許可されていません' : (e.message || 'カメラが見つかりません');
-    video.classList.add('hidden');
-  });
-  setTimeout(() => input.focus(), 100);
+  return [el('div.rays'), floats, decoChips];
 }
 
-async function doLogin(code) {
-  const r = await api.login(code);
+function showStandby() {
+  state.player = null;
+  const top3 = el('div.top3');
+  const node = el('div.screen.standby',
+    decorations(),
+    el('div.title', 'IT部 CASINO'),
+    el('div.sub', 'チップを増やしてランキング1位を目指せ！'),
+    el('div.entry-buttons',
+      el('button.entry-btn.new', { on: { click: () => { sound.click(); showAuthForm('register'); } } },
+        el('div.entry-icon', '🆕'), el('div.entry-main', 'はじめて'), el('div.entry-sub', `名前を登録して ${fmt(state.config.chips.initial)} チップGET！`)),
+      el('button.entry-btn.cont', { on: { click: () => { sound.click(); showAuthForm('login'); } } },
+        el('div.entry-icon', '▶'), el('div.entry-main', 'つづきから'), el('div.entry-sub', '登録した名前とパスワードで'))),
+    top3,
+    el('div.muted', { style: { fontSize: '14px' } }, `端末: ${terminalId()}　チップに換金性はありません`));
+  setScreen(node, 'standby');
+  // いまのトップ3をちらっと見せる
+  request('GET', '/api/ranking').then((r) => {
+    const list = r.ranking.slice(0, 3);
+    if (!list.length) return;
+    clear(top3, el('span.muted', '現在のトップ ', ''), list.map((p, i) => el('span.top3-item', ['🥇', '🥈', '🥉'][i], ` ${p.nickname} `, el('b.num', fmt(p.peakChips)))));
+  }).catch(() => {});
+}
+
+// 新規登録 / ログインの入力画面
+function showAuthForm(mode) {
+  const isNew = mode === 'register';
+  const acc = state.config.account;
+  const max = state.config.nickname.maxLength;
+  const nameInput = el('input.text-input.auth-input', { placeholder: `${max}文字以内（ひらがな・カタカナ・英数字OK）`, autocomplete: 'off', spellcheck: false, maxlength: max * 2 });
+  // type=password だとブラウザが「パスワードを保存」を出してしまうので、文字を隠す表示で代用
+  const pwInput = el('input.text-input.auth-input.secret', { placeholder: `パスワード（半角英数字 ${acc.minLength}〜${acc.maxLength}文字）`, autocomplete: 'off', spellcheck: false, autocapitalize: 'off', maxlength: acc.maxLength });
+  const pw2Input = el('input.text-input.auth-input.secret', { placeholder: 'もう一度パスワード', autocomplete: 'off', spellcheck: false, autocapitalize: 'off', maxlength: acc.maxLength });
+  const nameMsg = el('div.field-msg');
+  const err = el('div.error-text');
+  const showPw = el('label.show-pw', el('input', { type: 'checkbox', on: { change: (e) => {
+    for (const i of [pwInput, pw2Input]) i.classList.toggle('secret', !e.target.checked);
+  } } }), ' パスワードを表示');
+  let easy = false;
+  const easyToggle = el('div.toggle', { on: { click: () => { easy = !easy; easyToggle.classList.toggle('on', easy); } } },
+    el('div.knob'), el('span', 'かんたんモード（レバレッジなし・小学生におすすめ）'));
+  let busy = false;
+
+  // 入力中に名前が使えるか確認
+  let checkTimer = null;
+  let checkSeq = 0;
+  if (isNew) {
+    nameInput.addEventListener('input', () => {
+      clearTimeout(checkTimer);
+      const name = nameInput.value.trim();
+      nameMsg.className = 'field-msg';
+      nameMsg.textContent = name ? '確認中…' : '';
+      if (!name) return;
+      const seq = ++checkSeq;
+      checkTimer = setTimeout(async () => {
+        try {
+          const r = await request('GET', `/api/name-check?name=${encodeURIComponent(name)}`);
+          if (seq !== checkSeq) return;
+          nameMsg.className = 'field-msg ' + (r.ok ? 'ok' : 'ng');
+          nameMsg.textContent = (r.ok ? '✓ ' : '✗ ') + r.message;
+        } catch { /* ignore */ }
+      }, 300);
+    });
+  }
+
+  const submit = async () => {
+    if (busy) return;
+    err.textContent = '';
+    const username = nameInput.value.trim();
+    const password = pwInput.value;
+    if (!username) { err.textContent = '名前を入力してね'; nameInput.focus(); return; }
+    if (!password) { err.textContent = 'パスワードを入力してね'; pwInput.focus(); return; }
+    if (isNew && password !== pw2Input.value) { err.textContent = 'パスワードが2回目と一致しません'; pw2Input.focus(); return; }
+    busy = true;
+    try {
+      const r = isNew ? await api.register(username, password, easy) : await api.login(username, password);
+      sound.scan();
+      await afterAuth(r, isNew);
+    } catch (e) {
+      sound.error();
+      err.textContent = e.message;
+      busy = false;
+    }
+  };
+  const onEnter = (next) => (e) => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    if (next) next.focus();
+    else submit();
+  };
+  nameInput.addEventListener('keydown', onEnter(pwInput));
+  pwInput.addEventListener('keydown', onEnter(isNew ? pw2Input : null));
+  pw2Input.addEventListener('keydown', onEnter(null));
+
+  const node = el('div.screen.standby',
+    decorations(),
+    el('div.panel.auth-panel',
+      el('h2', isNew ? '🆕 はじめての登録' : '▶ つづきから遊ぶ'),
+      el('div.muted', { style: { marginBottom: '12px' } }, isNew
+        ? 'ランキングに表示される名前と、次に遊ぶときのパスワードを決めてね（本名は入れないでね）'
+        : '登録した名前とパスワードを入力してね'),
+      el('label.field-label', '名前'), nameInput, isNew ? nameMsg : null,
+      el('label.field-label', 'パスワード'), pwInput,
+      isNew ? pw2Input : null,
+      showPw,
+      isNew ? el('div.muted', { style: { fontSize: '14px' } }, '⚠ パスワードを忘れると続きから遊べません。忘れたら受付へ') : null,
+      isNew ? easyToggle : null,
+      err,
+      el('div.row', { style: { justifyContent: 'center', marginTop: '6px' } },
+        el('button.btn.secondary', { on: { click: showStandby } }, 'もどる'),
+        el('button.btn.big', { on: { click: submit } }, isNew ? '登録してはじめる！' : 'ログイン')),
+      el('div.center', { style: { marginTop: '10px' } },
+        el('a.switch-link', { href: '#', on: { click: (e) => { e.preventDefault(); showAuthForm(isNew ? 'login' : 'register'); } } },
+          isNew ? 'もう登録している人はこちら → つづきから' : 'はじめての人はこちら → 新規登録'))));
+  setScreen(node, isNew ? 'register' : 'login');
+  state.cleanup = () => clearTimeout(checkTimer);
+  setTimeout(() => nameInput.focus(), 80);
+}
+
+async function afterAuth(r, isNew) {
   state.player = r.player;
   if (r.status === 'no_chips') {
     showMessage({
       icon: '💸',
       title: 'チップがありません',
-      text: `${r.player.nickname || ''} さんはロスカット中です。受付で「復活」（1日1回）を受けると、また遊べます。`,
-      button: '待機画面へ',
+      text: `${r.player.nickname} さんはロスカット中です。受付で「復活」（1日1回）を受けると、また遊べます。`,
+      button: 'トップへ',
       onClose: resetToStandby,
       auto: 10,
     });
@@ -232,11 +305,13 @@ async function doLogin(code) {
   }
   startHeartbeat();
   state.lastInput = Date.now();
-  if (r.player.needsNickname) showNickname();
-  else {
+  if (isNew) {
+    sound.win();
+    toast(`ようこそ、${r.player.nickname} さん！ ${fmt(r.player.chips)} チップをプレゼント！`, { ms: 4000 });
+  } else {
     toast(`おかえりなさい、${r.player.nickname} さん！`);
-    showMenu();
   }
+  showMenu();
 }
 
 function showMessage({ icon, title, text, button = 'OK', onClose, auto }) {
@@ -248,42 +323,6 @@ function showMessage({ icon, title, text, button = 'OK', onClose, auto }) {
   setScreen(node, 'message');
   if (auto) timer = setTimeout(close, auto * 1000);
   state.cleanup = () => clearTimeout(timer);
-}
-
-// ---------- ニックネーム登録 ----------
-function showNickname() {
-  const max = state.config.nickname.maxLength;
-  const input = el('input.text-input', { maxlength: max * 2, placeholder: `${max}文字以内`, style: { width: '420px', fontSize: '32px' } });
-  const err = el('div.error-text');
-  const count = el('span.muted.num', `0 / ${max}`);
-  let easy = false;
-  const easyToggle = el('div.toggle', { on: { click: () => { easy = !easy; easyToggle.classList.toggle('on', easy); } } },
-    el('div.knob'), el('span', 'かんたんモード（レバレッジなし・小学生におすすめ）'));
-  input.addEventListener('input', () => { count.textContent = `${[...input.value].length} / ${max}`; });
-  const submit = async () => {
-    err.textContent = '';
-    try {
-      const r = await api.profile({ nickname: input.value, easyMode: easy });
-      state.player = r.player;
-      sound.win();
-      showMenu();
-    } catch (e) {
-      if (e.code === 'SESSION_LOST') return handleError(e);
-      sound.error();
-      err.textContent = e.message;
-    }
-  };
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) submit(); });
-  const node = el('div.screen', el('div.panel.col', { style: { alignItems: 'center', minWidth: '640px' } },
-    el('h2', 'ニックネームを決めてね'),
-    el('div.muted', 'ランキングに表示されます（本名は入れないでね）'),
-    el('div.row', input, count),
-    easyToggle,
-    err,
-    el('div.row', el('button.btn.secondary', { on: { click: endSession } }, 'やめる'), el('button.btn.big', { on: { click: submit } }, '決定')),
-    el('div.muted', `はじめに ${fmt(state.config.chips.initial)} チップをプレゼント！`)));
-  setScreen(node, 'nickname');
-  setTimeout(() => input.focus(), 50);
 }
 
 // ---------- ゲーム選択 ----------

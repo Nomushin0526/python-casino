@@ -11,8 +11,8 @@ const dbFile = path.resolve(ROOT, cfg.server.dbFile);
 const db = openDb(dbFile);
 const app = createApp(cfg, db);
 
-if (cfg.admin.password === 'casino-admin' || cfg.card.secret === 'change-me-before-printing') {
-  console.warn('\n[注意] 管理パスワードまたはカードのsecretが初期値のままです。config.local.json で変更してください。\n');
+if (cfg.admin.password === 'casino-admin') {
+  console.warn('\n[注意] 管理画面のパスワードが初期値のままです。config.local.json で変更してください。\n');
 }
 
 // 自動バックアップ（古いものは削除）

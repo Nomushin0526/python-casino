@@ -45,7 +45,7 @@ export function publicConfig(cfg) {
     session: cfg.session,
     nickname: cfg.nickname,
     ranking: cfg.ranking,
-    card: { idPrefix: cfg.card.idPrefix, idDigits: cfg.card.idDigits },
+    account: cfg.account,
     games,
   });
 }

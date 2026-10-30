@@ -17,5 +17,4 @@ if not defined BROWSER (
   pause
   exit /b 1
 )
-rem --unsafely-treat-insecure-origin-as-secure : http 接続でもカメラを使えるようにする
-start "" %BROWSER% --kiosk --user-data-dir="%~dp0.browser-game" --no-first-run --disable-translate --disable-features=Translate --autoplay-policy=no-user-gesture-required --overscroll-history-navigation=0 --unsafely-treat-insecure-origin-as-secure=%SERVER% "%SERVER%/?terminal=%TERMINAL%"
+start "" %BROWSER% --kiosk --user-data-dir="%~dp0.browser-game" --no-first-run --disable-translate --disable-features=Translate,PasswordManagerOnboarding --password-store=basic --disable-save-password-bubble --autoplay-policy=no-user-gesture-required --overscroll-history-navigation=0 "%SERVER%/?terminal=%TERMINAL%"

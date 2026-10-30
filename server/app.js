@@ -3,10 +3,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
-import QRCode from 'qrcode';
 import { ROOT, publicConfig } from './config.js';
 import { Store, tx } from './db.js';
-import { cardCode, makeId, parseCode } from './codes.js';
+import { nameKey, validatePassword, hashPassword, verifyPassword, LoginGuard } from './accounts.js';
 import { validateNickname } from './ngwords.js';
 import { resolveOutcome, computeDelta, betRange, SettleError } from '../public/js/lib/settle.js';
 
@@ -30,6 +29,7 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
   const rounds = new Map(); // roundId -> round
   const pendingByPlayer = new Map(); // playerId -> roundId
   const adminTokens = new Map(); // token -> expiresAt
+  const guard = new LoginGuard({ now });
 
   const lockMs = cfg.session.lockTimeoutSec * 1000;
 
@@ -41,7 +41,6 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
     peakChips: p.peak_chips,
     losscutCount: p.losscut_count,
     easyMode: !!p.easy_mode,
-    needsNickname: !p.nickname,
   };
 
   const releaseLock = db.prepare('UPDATE players SET active_session = NULL, session_token = NULL, session_seen_at = NULL WHERE id = ?');
@@ -74,7 +73,7 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
     const { playerId, token } = req.body || {};
     const p = typeof playerId === 'string' ? store.getPlayer(playerId) : null;
     if (!p || !token || p.session_token !== token) {
-      throw new ApiError(409, 'SESSION_LOST', 'セッションが切れました。もう一度QRをかざしてください');
+      throw new ApiError(409, 'SESSION_LOST', 'セッションが切れました。もう一度ログインしてください');
     }
     touchLock.run(now(), p.id);
     return p;
@@ -97,35 +96,70 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
 
   app.get('/api/health', wrap(() => ({ ok: true, time: new Date(now()).toISOString() })));
 
-  app.post('/api/login', wrap((req) => {
-    const { code, terminalId } = req.body || {};
+  function checkTerminal(terminalId) {
     if (typeof terminalId !== 'string' || !terminalId) throw new ApiError(400, 'BAD_TERMINAL', '端末IDがありません');
-    const id = parseCode(cfg, code);
-    if (!id) throw new ApiError(404, 'BAD_CODE', 'このQRコードは使えません。受付に声をかけてください');
+  }
 
-    const p = store.getPlayer(id) || store.createPlayer(id, cfg.chips.initial, terminalId);
+  // ログイン状態にする（端末ロック・前の人の後始末）
+  function startSession(p, terminalId) {
     if (isLockedByOther(p, terminalId)) {
-      throw new ApiError(423, 'LOCKED', 'このカードは別の端末でプレイ中です。そちらを終了してからかざしてください');
+      throw new ApiError(423, 'LOCKED', 'この名前は別の端末でプレイ中です。そちらを終了してからログインしてください');
     }
-
     // この端末に前の人が残っていたら解放
     for (const { id: other } of playersOnTerminal.all(terminalId)) {
-      if (other !== id) {
+      if (other !== p.id) {
         forfeitPending(other, 'replaced');
         releaseLock.run(other);
       }
     }
     // 自分の未精算ラウンド（別端末で放置など）も精算
-    forfeitPending(id, 'relogin');
-
-    const fresh = store.getPlayer(id);
+    forfeitPending(p.id, 'relogin');
+    const fresh = store.getPlayer(p.id);
     if (fresh.chips <= 0) {
-      releaseLock.run(id);
+      releaseLock.run(p.id);
       return { status: 'no_chips', player: playerView(fresh) };
     }
     const token = rand();
-    takeLock.run(terminalId, token, now(), id);
-    return { status: 'ok', token, player: playerView(store.getPlayer(id)) };
+    takeLock.run(terminalId, token, now(), p.id);
+    return { status: 'ok', token, player: playerView(store.getPlayer(p.id)) };
+  }
+
+  // 名前が使えるか（新規登録画面で入力中に確認）
+  app.get('/api/name-check', wrap((req) => {
+    const v = validateNickname(cfg, String(req.query.name ?? ''));
+    if (!v.ok) return { ok: false, message: v.error };
+    if (store.getByName(nameKey(v.nickname))) return { ok: false, message: 'この名前はすでに使われています' };
+    return { ok: true, message: 'この名前は使えます' };
+  }));
+
+  app.post('/api/register', wrap((req) => {
+    const { username, password, terminalId, easyMode } = req.body || {};
+    checkTerminal(terminalId);
+    const v = validateNickname(cfg, username);
+    if (!v.ok) throw new ApiError(400, 'BAD_NAME', v.error);
+    const pw = validatePassword(cfg, password);
+    if (!pw.ok) throw new ApiError(400, 'BAD_PASSWORD', pw.error);
+    const p = store.createPlayer({
+      id: 'U' + rand(5), nickname: v.nickname, nameKey: nameKey(v.nickname), passwordHash: hashPassword(pw.password),
+      easyMode: !!easyMode, initialChips: cfg.chips.initial, terminal: terminalId,
+    });
+    if (!p) throw new ApiError(409, 'NAME_TAKEN', 'この名前はすでに使われています。別の名前にしてね');
+    return startSession(p, terminalId);
+  }));
+
+  app.post('/api/login', wrap((req) => {
+    const { username, password, terminalId } = req.body || {};
+    checkTerminal(terminalId);
+    const key = nameKey(username ?? '');
+    const wait = guard.blockedFor(key);
+    if (wait) throw new ApiError(429, 'TOO_MANY', `パスワードを何度も間違えたので、${wait}秒待ってからもう一度試してね`);
+    const p = key ? store.getByName(key) : null;
+    if (!p || !verifyPassword(String(password ?? ''), p.password_hash)) {
+      if (p) guard.fail(key);
+      throw new ApiError(401, 'BAD_LOGIN', '名前かパスワードがちがいます。忘れたときは受付で聞いてね');
+    }
+    guard.success(key);
+    return startSession(p, terminalId);
   }));
 
   app.post('/api/logout', wrap((req) => {
@@ -142,12 +176,7 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
 
   app.post('/api/profile', wrap((req) => {
     const p = auth(req);
-    const { nickname, easyMode } = req.body;
-    if (nickname !== undefined) {
-      const v = validateNickname(cfg, nickname);
-      if (!v.ok) throw new ApiError(400, 'BAD_NICKNAME', v.error);
-      db.prepare('UPDATE players SET nickname = ? WHERE id = ?').run(v.nickname, p.id);
-    }
+    const { easyMode } = req.body;
     if (easyMode !== undefined) {
       db.prepare('UPDATE players SET easy_mode = ? WHERE id = ?').run(easyMode ? 1 : 0, p.id);
     }
@@ -156,7 +185,6 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
 
   app.post('/api/round/start', wrap((req) => {
     const p = auth(req);
-    if (!p.nickname) throw new ApiError(400, 'NO_NICKNAME', 'ニックネームを登録してください');
     const { game } = req.body;
     const gameCfg = cfg.games[game];
     if (!gameCfg || !gameCfg.enabled) throw new ApiError(400, 'BAD_GAME', 'そのゲームは遊べません');
@@ -260,30 +288,30 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
     pendingRound: pendingByPlayer.has(p.id) ? rounds.get(pendingByPlayer.get(p.id))?.game : null,
   };
 
-  function findPlayer(idOrCode, create = false) {
-    const id = parseCode(cfg, String(idOrCode ?? ''), { admin: true });
-    if (!id) throw new ApiError(400, 'BAD_CODE', 'IDの形式が正しくありません');
-    const p = store.getPlayer(id) || (create ? store.createPlayer(id, cfg.chips.initial, 'admin') : null);
-    if (!p) throw new ApiError(404, 'NOT_FOUND', `${id} はまだ登録されていません`);
+  // 内部ID（U…）または登録名で探す
+  function findPlayer(idOrName) {
+    const q = String(idOrName ?? '').trim();
+    const p = (q && store.getPlayer(q)) || (q && store.getByName(nameKey(q)));
+    if (!p) throw new ApiError(404, 'NOT_FOUND', `「${q}」という名前は登録されていません`);
     return p;
   }
 
   admin.get('/players', wrap((req) => {
     const q = String(req.query.q || '').trim();
     const like = `%${q}%`;
-    const rows = db.prepare(`SELECT * FROM players WHERE (? = '' OR id LIKE ? OR nickname LIKE ?)
-      ORDER BY updated_at DESC LIMIT 200`).all(q, like, like);
+    const rows = db.prepare(`SELECT * FROM players WHERE (? = '' OR id LIKE ? OR nickname LIKE ? OR name_key LIKE ?)
+      ORDER BY updated_at DESC LIMIT 200`).all(q, like, like, `%${nameKey(q)}%`);
     return { players: rows.map(adminPlayerView) };
   }));
 
   admin.get('/players/:id', wrap((req) => {
-    const p = findPlayer(req.params.id, req.query.create === '1');
+    const p = findPlayer(req.params.id);
     const txs = db.prepare('SELECT * FROM transactions WHERE player_id = ? ORDER BY id DESC LIMIT 300').all(p.id);
     return { player: adminPlayerView(p), transactions: txs };
   }));
 
   admin.post('/players/:id/chips', wrap((req) => {
-    const p = findPlayer(req.params.id, true);
+    const p = findPlayer(req.params.id);
     const { kind, note } = req.body || {};
     const c = cfg.chips;
     let game, delta;
@@ -316,13 +344,11 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
     const p = findPlayer(req.params.id);
     const { nickname, peakChips, easyMode } = req.body || {};
     if (nickname !== undefined) {
-      if (nickname === null || nickname === '') {
-        db.prepare('UPDATE players SET nickname = NULL WHERE id = ?').run(p.id);
-      } else {
-        const v = validateNickname(cfg, nickname);
-        if (!v.ok) throw new ApiError(400, 'BAD_NICKNAME', v.error);
-        db.prepare('UPDATE players SET nickname = ? WHERE id = ?').run(v.nickname, p.id);
-      }
+      const v = validateNickname(cfg, nickname);
+      if (!v.ok) throw new ApiError(400, 'BAD_NICKNAME', v.error);
+      const other = store.getByName(nameKey(v.nickname));
+      if (other && other.id !== p.id) throw new ApiError(409, 'NAME_TAKEN', 'その名前はほかの人が使っています');
+      db.prepare('UPDATE players SET nickname = ?, name_key = ? WHERE id = ?').run(v.nickname, nameKey(v.nickname), p.id);
     }
     if (peakChips !== undefined) {
       const v = Math.trunc(Number(peakChips));
@@ -408,23 +434,15 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
     return { ok: true, backup: file };
   }));
 
-  admin.get('/cards', async (req, res) => {
-    try {
-      const from = Math.max(1, Math.trunc(Number(req.query.from) || 1));
-      const count = Math.min(500, Math.max(1, Math.trunc(Number(req.query.count) || 10)));
-      const cards = [];
-      for (let n = from; n < from + count; n++) {
-        const id = makeId(cfg, n);
-        const code = cardCode(cfg, id);
-        const svg = await QRCode.toString(code, { type: 'svg', errorCorrectionLevel: 'M', margin: 1 });
-        cards.push({ id, code, svg });
-      }
-      res.json({ cards });
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'INTERNAL', message: String(e.message) });
-    }
-  });
+  // パスワードを忘れた人のために再設定
+  admin.post('/players/:id/password', wrap((req) => {
+    const p = findPlayer(req.params.id);
+    const pw = validatePassword(cfg, req.body?.password);
+    if (!pw.ok) throw new ApiError(400, 'BAD_PASSWORD', pw.error);
+    db.prepare('UPDATE players SET password_hash = ? WHERE id = ?').run(hashPassword(pw.password), p.id);
+    guard.success(p.name_key);
+    return { player: adminPlayerView(store.getPlayer(p.id)) };
+  }));
 
   app.use('/api/admin', admin);
   app.use('/api', (req, res) => res.status(404).json({ error: 'NOT_FOUND', message: 'APIが見つかりません' }));

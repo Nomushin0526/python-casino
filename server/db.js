@@ -15,6 +15,8 @@ export function openDb(file) {
     CREATE TABLE IF NOT EXISTS players (
       id              TEXT PRIMARY KEY,
       nickname        TEXT,
+      name_key        TEXT,
+      password_hash   TEXT,
       chips           INTEGER NOT NULL,
       peak_chips      INTEGER NOT NULL,
       losscut_count   INTEGER NOT NULL DEFAULT 0,
@@ -43,6 +45,11 @@ export function openDb(file) {
     CREATE INDEX IF NOT EXISTS idx_tx_game_date ON transactions(game, created_at);
     CREATE INDEX IF NOT EXISTS idx_players_peak ON players(peak_chips DESC);
   `);
+  // 古いDB（QRカード版）からの移行：列を追加
+  const cols = db.prepare('PRAGMA table_info(players)').all().map((c) => c.name);
+  if (!cols.includes('name_key')) db.exec('ALTER TABLE players ADD COLUMN name_key TEXT');
+  if (!cols.includes('password_hash')) db.exec('ALTER TABLE players ADD COLUMN password_hash TEXT');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_players_name ON players(name_key)');
   return db;
 }
 
@@ -64,7 +71,8 @@ export class Store {
     const q = (sql) => db.prepare(sql);
     this.s = {
       get: q('SELECT * FROM players WHERE id = ?'),
-      insert: q('INSERT INTO players (id, chips, peak_chips) VALUES (?, ?, ?)'),
+      insert: q('INSERT INTO players (id, nickname, name_key, password_hash, easy_mode, chips, peak_chips) VALUES (?, ?, ?, ?, ?, ?, ?)'),
+      byName: q('SELECT * FROM players WHERE name_key = ?'),
       setChips: q(`UPDATE players SET chips = ?, peak_chips = MAX(peak_chips, ?), losscut_count = losscut_count + ?, updated_at = ${NOW} WHERE id = ?`),
       addTx: q(`INSERT INTO transactions (player_id, game, bet, leverage, multiplier, delta, balance_after, detail, terminal)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
@@ -77,11 +85,15 @@ export class Store {
     return this.s.get.get(id) || null;
   }
 
-  createPlayer(id, initialChips, terminal = null) {
+  getByName(key) {
+    return this.s.byName.get(key) || null;
+  }
+
+  // 新規登録。同じ名前があれば null
+  createPlayer({ id, nickname, nameKey, passwordHash, easyMode = false, initialChips, terminal = null }) {
     return tx(this.db, () => {
-      const existing = this.getPlayer(id);
-      if (existing) return existing;
-      this.s.insert.run(id, initialChips, initialChips);
+      if (this.getByName(nameKey)) return null;
+      this.s.insert.run(id, nickname, nameKey, passwordHash, easyMode ? 1 : 0, initialChips, initialChips);
       this.s.addTx.run(id, 'initial', null, null, null, initialChips, initialChips, null, terminal);
       return this.getPlayer(id);
     });

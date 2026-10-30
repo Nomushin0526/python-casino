@@ -15,11 +15,9 @@
     "vendor": "node scripts/copy-vendor.js"
   },
   "dependencies": {
-    "express": "^5.2.1",
-    "qrcode": "^1.5.4"
+    "express": "^5.2.1"
   },
   "devDependencies": {
-    "jsqr": "^1.4.0",
     "matter-js": "^0.20.0"
   }
 }
