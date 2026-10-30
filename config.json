@@ -36,7 +36,7 @@
   "session": {
     "_comment": "lockTimeoutSec: この秒数ハートビートが無ければ端末ロックを自動解除。idleSec: 無操作でこの秒数たつとトップ画面に戻る",
     "lockTimeoutSec": 90,
-    "heartbeatSec": 15,
+    "heartbeatSec": 30,
     "idleSec": 90,
     "idleWarnSec": 15,
     "resultSec": 6
@@ -48,7 +48,7 @@
 
   "ranking": {
     "limit": 30,
-    "refreshSec": 5
+    "refreshSec": 10
   },
 
   "games": {

@@ -1,0 +1,10 @@
+# Cloudflare Pages の設定（ネット公開版）
+# database_id は `npm run cf:setup` が自動で書き込みます
+name = "it-casino"
+pages_build_output_dir = "public"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "it-casino-db"
+database_id = "REPLACE_ME"

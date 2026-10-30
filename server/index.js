@@ -3,12 +3,12 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 import { loadConfig, ROOT } from './config.js';
-import { openDb } from './db.js';
+import { openNodeDb } from './core/db-node.js';
 import { createApp } from './app.js';
 
 const cfg = loadConfig();
 const dbFile = path.resolve(ROOT, cfg.server.dbFile);
-const db = openDb(dbFile);
+const db = openNodeDb(dbFile);
 const app = createApp(cfg, db);
 
 if (cfg.admin.password === 'casino-admin') {

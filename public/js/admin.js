@@ -214,30 +214,52 @@ async function renderStats(body) {
         el('div.panel', el('h2', '種類別'), el('table',
           el('thead', el('tr', el('th', '種類'), el('th', '回数'), el('th', '本日'), el('th', 'チップ増減合計'))),
           el('tbody', r.byGame.map((g) => el('tr', el('td', gameName(g.game)), el('td.num', fmt(g.plays)), el('td.num', fmt(g.today)), el('td.num', signed(g.net)))))))),
-      el('div.note', { style: { marginTop: '10px' } }, `DB: ${r.dbFile}`));
+      el('div.note', { style: { marginTop: '10px' } }, config.platform === 'cloudflare' ? 'ネット公開版（Cloudflare）' : 'PC版'));
   } catch (e) { err(e); }
 }
 
 // ---------- バックアップ / リセット ----------
 function renderData(body) {
   const confirmInput = el('input', { placeholder: 'RESET と入力' });
+  const pc = config.platform !== 'cloudflare';
+  // 全データをJSONファイルで保存（PC版・ネット公開版の両方で使える）
+  const exportJson = async () => {
+    try {
+      const data = await adm('GET', '/api/admin/export');
+      const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+      const a = el('a', { href: URL.createObjectURL(blob), download: `casino-${data.exportedAt.replace(/[: ]/g, '-')}.json` });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      toast(`${data.players.length}人分のデータを保存しました`);
+    } catch (e) { err(e); }
+  };
   clear(body, el('div.col', { style: { maxWidth: '760px' } },
     el('div.panel.col',
       el('h2', 'バックアップ'),
-      el('div.note', 'サーバーは自動で定期バックアップしています（data/backups）。各日の終了時は下の「ダウンロード」でUSBメモリにも保存してください。'),
+      pc
+        ? el('div.note', 'サーバーは自動で定期バックアップしています（data/backups）。各日の終了時は下の「ダウンロード」でUSBメモリにも保存してください。')
+        : el('div.note', 'ネット公開版です。データは Cloudflare に保存されています。念のため各日の終わりに「JSONで保存」してください。'),
       el('div.btn-row',
-        el('a.btn', { href: `/api/admin/backup/download?token=${encodeURIComponent(token)}` }, 'DBファイルをダウンロード'),
-        el('button.btn.secondary', { on: { click: async () => {
+        pc ? el('a.btn', { href: `/api/admin/backup/download?token=${encodeURIComponent(token)}` }, 'DBファイルをダウンロード') : null,
+        pc ? el('button.btn.secondary', { on: { click: async () => {
           try { const r = await adm('POST', '/api/admin/backup'); toast(`保存しました: ${r.file}`, { ms: 6000 }); } catch (e) { err(e); }
-        } } }, 'サーバー内に今すぐ保存'))),
+        } } }, 'サーバー内に今すぐ保存') : null,
+        el('button.btn.secondary', { on: { click: exportJson } }, '全データをJSONで保存'))),
     el('div.panel.col',
       el('h2', { style: { color: 'var(--red)' } }, 'データのリセット'),
-      el('div.note', '全プレイヤーと全履歴を削除します（実行前に自動でバックアップされます）。本番前のテストデータ削除などに使ってください。'),
+      el('div.note', pc
+        ? '全プレイヤーと全履歴を削除します（実行前に自動でバックアップされます）。本番前のテストデータ削除などに使ってください。'
+        : '全プレイヤーと全履歴を削除します。元に戻せないので、必要なら先に「JSONで保存」してください。本番前のテストデータ削除などに使ってください。'),
       el('div.btn-row', confirmInput,
         el('button.btn.danger', { on: { click: async () => {
           if (confirmInput.value !== 'RESET') return toast('確認欄に RESET と入力してください', { error: true });
           if (!confirm('本当に全データを削除しますか？')) return;
-          try { const r = await adm('POST', '/api/admin/reset', { confirm: 'RESET' }); toast(`リセットしました（バックアップ: ${r.backup}）`, { ms: 8000 }); confirmInput.value = ''; } catch (e) { err(e); }
+          try {
+            const r = await adm('POST', '/api/admin/reset', { confirm: 'RESET' });
+            toast(r.backup ? `リセットしました（バックアップ: ${r.backup}）` : 'リセットしました', { ms: 8000 });
+            confirmInput.value = '';
+          } catch (e) { err(e); }
         } } }, '全データを削除')))));
 }
 

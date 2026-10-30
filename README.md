@@ -84,6 +84,47 @@ PC-B はブラウザ（Chrome か Edge）があればOK。Node.js は不要で�
 - インターネットにつながらないWi-Fiだと、スマホが「インターネット未接続」と出してモバイル通信に切り替えることがあります。そのときは「このまま接続」を選ぶか、モバイルデータをオフにしてもらってください
 - ルーターの「プライバシーセパレーター／AP分離」がオンだと、スマホからPC-Aに接続できません。オフにしてください
 
+## ネット公開版（Cloudflare Pages）
+
+会場Wi-Fiが使えない場合は、Cloudflare Pages（無料）でネットに公開します。来場者は自分のスマホの回線で URL を開くだけで遊べます。
+ゲーム画面・管理画面・ランキングは PC版とまったく同じです（サーバー部分だけ Cloudflare の Pages Functions と D1 データベースで動きます）。
+
+### 初回セットアップ（Macのターミナルで）
+
+1. Cloudflare のアカウントを作る（無料）：https://dash.cloudflare.com/sign-up
+2. ターミナルで：
+   ```
+   cd ~/Desktop/casino
+   git pull
+   npm install
+   npm run cf:setup
+   ```
+   - ブラウザが開いたら Cloudflare にログインして「Allow（許可）」を押す
+   - 「Enter a secret value:」と出たら、**管理画面のパスワード**を入力して Enter（文字は表示されません）
+3. 最後に表示される `https://it-casino.pages.dev/`（または似たURL）が公開URLです
+   - 管理画面：`https://it-casino.pages.dev/admin`
+   - ランキング：`https://it-casino.pages.dev/ranking`
+
+### 修正したら公開しなおす
+```
+npm run cf:deploy
+```
+
+### そのほか
+| やりたいこと | コマンド / 操作 |
+|---|---|
+| 管理画面のパスワードを変える | `npm run cf:password`（そのあと `npm run cf:deploy`） |
+| 手元で Cloudflare 版を試す | `.dev.vars` に `ADMIN_PASSWORD=好きなパスワード` と書いて `npm run cf:dev` → http://localhost:8788 |
+| 動作確認 | `npm run smoke -- https://it-casino.pages.dev 管理パスワード` |
+| 本番前にテストデータを消す | 管理画面 →「バックアップ / リセット」 |
+| 学祭が終わって閉鎖する | Cloudflare のダッシュボード → Workers & Pages → it-casino → Settings → Delete（削除） |
+
+- 管理画面のパスワードを設定しないと、管理画面にはログインできません（ネットに出るので初期パスワードは使えないようにしています）
+- バックアップは管理画面の「全データをJSONで保存」で各日の終わりに保存してください
+- Cloudflare の無料枠（1日10万リクエスト程度）で2日間の学祭なら足ります。料金や無料枠は変わることがあるので公式サイトでも確認してください
+- `it-casino` という名前がほかの人に使われていた場合は、`wrangler.toml` の `name` と `package.json` の `cf:password` の `it-casino` を別の名前に変えてから `npm run cf:setup`
+- ネット公開版ではズル対策をしていません（ゲーム結果はブラウザから送っています）
+
 ## 運用
 
 - **VRボーナス**：VR体験後、管理画面で名前を検索して「VRボーナス +50」（1人1日1回）
@@ -146,11 +187,14 @@ node scripts/pinball-check.js    # 発射とフリッパーの基本動作チェ
 npm install
 npm start        # http://localhost:3000
 npm test         # API・役判定・各ゲームのルールの単体テスト
+npm run cf:dev   # Cloudflare版を手元で動かす（http://localhost:8788）
 npm run vendor   # node_modules から public/vendor にライブラリをコピーし直す
 ```
 
 ```
-server/          Express サーバー（app.js がAPI、db.js がSQLite、accounts.js が名前とパスワード）
+server/          PC版のサーバー（Express）
+  core/          APIの本体（PC版とCloudflare版で共通）：api.js / schema.js / accounts.js / db-node.js / db-d1.js
+functions/       Cloudflare Pages Functions（/api/* を core に渡すだけ）
 public/          ブラウザ側（index.html ゲーム端末 / admin.html 管理 / ranking.html）
   js/lib/        ゲームのルール（サーバー・テストと共通）
   js/games/      各ゲームの画面

@@ -2,13 +2,13 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadConfig } from '../server/config.js';
-import { openDb } from '../server/db.js';
+import { openNodeDb } from '../server/core/db-node.js';
 import { createApp } from '../server/app.js';
 
 let server, base;
 before(async () => {
   const cfg = loadConfig({ account: { allowDuplicateNames: false } });
-  const app = createApp(cfg, openDb(':memory:'));
+  const app = createApp(cfg, openNodeDb(':memory:'));
   await new Promise((r) => { server = app.listen(0, r); });
   base = `http://127.0.0.1:${server.address().port}`;
 });

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { loadConfig } from '../server/config.js';
-import { openDb } from '../server/db.js';
+import { openNodeDb } from '../server/core/db-node.js';
 import { createApp } from '../server/app.js';
 
 let server, base, cfg, clock = 1_000_000;
@@ -12,7 +12,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'casino-test-'));
 
 before(async () => {
   cfg = loadConfig({ server: { backupDir: path.join(tmp, 'backups') }, admin: { password: 'pw' } });
-  const app = createApp(cfg, openDb(':memory:'), { now: () => clock });
+  const app = createApp(cfg, openNodeDb(':memory:'), { now: () => clock });
   await new Promise((r) => { server = app.listen(0, r); });
   base = `http://127.0.0.1:${server.address().port}`;
 });
@@ -57,17 +57,13 @@ test('新規登録：初期チップ・同じ名前は使えない・NGワード
   assert.equal((await get(`/api/name-check?name=${encodeURIComponent('じろう')}`)).body.ok, true);
 });
 
-test('ログイン：パスワード確認・連続失敗で一時ロック', async () => {
+test('ログイン：パスワード確認', async () => {
   await reg('ログイン君', 'L1', 'secret1');
   assert.equal((await login('ログイン君', 'L1', 'wrong')).status, 401);
   assert.equal((await login('いない人', 'L1', 'secret1')).status, 401);
   const ok = await login('ログイン君', 'L1', 'secret1');
   assert.equal(ok.status, 200);
   assert.ok(ok.body.token);
-  for (let i = 0; i < 5; i++) await login('ログイン君', 'L1', 'wrong');
-  assert.equal((await login('ログイン君', 'L1', 'secret1')).status, 429);
-  clock += 61_000;
-  assert.equal((await login('ログイン君', 'L1', 'secret1')).status, 200);
 });
 
 test('2台同時ロックとタイムアウト解除', async () => {

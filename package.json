@@ -2,7 +2,7 @@
   "name": "gakusai-casino",
   "version": "1.0.0",
   "private": true,
-  "description": "情報技術部 学祭カジノ展示（QRカード＋チップ管理＋ミニゲーム）",
+  "description": "情報技術部 学祭カジノ展示（名前登録＋チップ管理＋ミニゲーム。PC版とCloudflare版）",
   "type": "module",
   "engines": {
     "node": ">=22.13"
@@ -12,12 +12,18 @@
     "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
     "test": "node --disable-warning=ExperimentalWarning --test",
     "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
-    "vendor": "node scripts/copy-vendor.js"
+    "vendor": "node scripts/copy-vendor.js",
+    "cf:dev": "wrangler pages dev --port 8788",
+    "cf:setup": "node scripts/cf-setup.js",
+    "cf:deploy": "wrangler pages deploy --branch main --commit-dirty=true",
+    "cf:password": "wrangler pages secret put ADMIN_PASSWORD --project-name it-casino",
+    "smoke": "node scripts/smoke.js"
   },
   "dependencies": {
     "express": "^5.2.1"
   },
   "devDependencies": {
-    "matter-js": "^0.20.0"
+    "matter-js": "^0.20.0",
+    "wrangler": "^4.156.0"
   }
 }

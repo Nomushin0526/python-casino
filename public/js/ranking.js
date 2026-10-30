@@ -27,7 +27,7 @@ async function load() {
       : el('div.muted', '—'));
     prev = new Map(r.ranking.map((p) => [p.nickname, p.peakChips]));
     const join = document.getElementById('join');
-    if (r.joinUrl) clear(join, '📱 スマホでも遊べる！ 会場Wi-Fiにつないで ', el('b', r.joinUrl));
+    if (r.joinUrl) clear(join, r.joinUrl.startsWith('https') ? '📱 スマホで遊べる！ ' : '📱 スマホでも遊べる！ 会場Wi-Fiにつないで ', el('b', r.joinUrl));
     document.getElementById('updated').textContent = `最終更新 ${new Date().toLocaleTimeString('ja-JP')}`;
   } catch (e) {
     document.getElementById('updated').textContent = `更新失敗（${e.message}）`;
