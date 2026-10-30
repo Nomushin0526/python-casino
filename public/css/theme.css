@@ -262,3 +262,4 @@ body {
 .show-pw { font-size: 15px; color: var(--muted); cursor: pointer; margin-top: 4px; }
 .auth-panel .toggle { align-self: flex-start; margin-top: 8px; }
 .switch-link { color: #9fd0ff; font-size: 16px; }
+.field-msg.same { color: var(--gold); font-weight: 700; }

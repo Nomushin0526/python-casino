@@ -101,7 +101,7 @@ async function loadList(list, q, open) {
     clear(list, r.players.length ? el('table',
       el('thead', el('tr', el('th', '名前'), el('th', 'チップ'), el('th', '最高'), el('th', '状態'))),
       el('tbody', r.players.map((p) => el('tr.clickable', { on: { click: () => open(p.id) } },
-        el('td', el('b', p.nickname || '（名前なし）')), el('td.num', fmt(p.chips)), el('td.num', fmt(p.peakChips)),
+        el('td', el('b', p.nickname || '（名前なし）'), el('span.muted', { style: { fontSize: '11px', marginLeft: '6px' } }, p.id)), el('td.num', fmt(p.chips)), el('td.num', fmt(p.peakChips)),
         el('td', p.activeSession ? `🎮 ${p.activeSession}` : p.chips === 0 ? '💀 0' : '')))))
       : el('div.muted', q ? `「${q}」に一致する名前はありません` : 'まだ誰も登録していません'));
     return r.players;

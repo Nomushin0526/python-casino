@@ -1,6 +1,7 @@
 // Express アプリ本体（テストからも使えるように index.js と分離）
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import express from 'express';
 import { ROOT, publicConfig } from './config.js';
@@ -128,7 +129,9 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
   app.get('/api/name-check', wrap((req) => {
     const v = validateNickname(cfg, String(req.query.name ?? ''));
     if (!v.ok) return { ok: false, message: v.error };
-    if (store.getByName(nameKey(v.nickname))) return { ok: false, message: 'この名前はすでに使われています' };
+    const same = store.allByName(nameKey(v.nickname)).length;
+    if (same && !cfg.account.allowDuplicateNames) return { ok: false, message: 'この名前はすでに使われています' };
+    if (same) return { ok: true, same: true, message: `同じ名前の人が${same}人います（パスワードで区別するので登録できます）` };
     return { ok: true, message: 'この名前は使えます' };
   }));
 
@@ -139,9 +142,20 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
     if (!v.ok) throw new ApiError(400, 'BAD_NAME', v.error);
     const pw = validatePassword(cfg, password);
     if (!pw.ok) throw new ApiError(400, 'BAD_PASSWORD', pw.error);
+    const key = nameKey(v.nickname);
+    const allowDup = !!cfg.account.allowDuplicateNames;
+    if (allowDup) {
+      // 同じ名前＋同じパスワードだとログインで区別できないので登録できない
+      const wait = guard.blockedFor(key);
+      if (wait) throw new ApiError(429, 'TOO_MANY', `${wait}秒待ってからもう一度試してね`);
+      if (store.allByName(key).some((o) => verifyPassword(pw.password, o.password_hash))) {
+        guard.fail(key);
+        throw new ApiError(409, 'SAME_NAME_PASSWORD', '同じ名前で同じパスワードの人がいます。パスワードを変えてね');
+      }
+    }
     const p = store.createPlayer({
-      id: 'U' + rand(5), nickname: v.nickname, nameKey: nameKey(v.nickname), passwordHash: hashPassword(pw.password),
-      easyMode: !!easyMode, initialChips: cfg.chips.initial, terminal: terminalId,
+      id: 'U' + rand(5), nickname: v.nickname, nameKey: key, passwordHash: hashPassword(pw.password),
+      easyMode: !!easyMode, initialChips: cfg.chips.initial, terminal: terminalId, unique: !allowDup,
     });
     if (!p) throw new ApiError(409, 'NAME_TAKEN', 'この名前はすでに使われています。別の名前にしてね');
     return startSession(p, terminalId);
@@ -153,9 +167,11 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
     const key = nameKey(username ?? '');
     const wait = guard.blockedFor(key);
     if (wait) throw new ApiError(429, 'TOO_MANY', `パスワードを何度も間違えたので、${wait}秒待ってからもう一度試してね`);
-    const p = key ? store.getByName(key) : null;
-    if (!p || !verifyPassword(String(password ?? ''), p.password_hash)) {
-      if (p) guard.fail(key);
+    // 同じ名前が複数いてもパスワードが合う人を探す
+    const candidates = key ? store.allByName(key) : [];
+    const p = candidates.find((o) => verifyPassword(String(password ?? ''), o.password_hash));
+    if (!p) {
+      if (candidates.length) guard.fail(key);
       throw new ApiError(401, 'BAD_LOGIN', '名前かパスワードがちがいます。忘れたときは受付で聞いてね');
     }
     guard.success(key);
@@ -249,7 +265,16 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
       (SELECT COUNT(*) FROM transactions WHERE bet IS NOT NULL) AS plays,
       (SELECT COALESCE(SUM(losscut_count),0) FROM players) AS losscuts`);
 
+  // スマホから接続するためのURL（同じWi-Fi内のアドレス）
+  function joinUrl() {
+    const ips = Object.values(os.networkInterfaces()).flat()
+      .filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address);
+    const lan = ips.find((ip) => /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip)) || ips[0];
+    return lan ? `http://${lan}:${cfg.server.port}/` : null;
+  }
+
   app.get('/api/ranking', wrap(() => ({
+    joinUrl: joinUrl(),
     ranking: rankingStmt.all(cfg.ranking.limit).map((r, i) => ({
       rank: i + 1, nickname: r.nickname, peakChips: r.peak_chips, chips: r.chips, losscutCount: r.losscut_count,
     })),
@@ -291,9 +316,11 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
   // 内部ID（U…）または登録名で探す
   function findPlayer(idOrName) {
     const q = String(idOrName ?? '').trim();
-    const p = (q && store.getPlayer(q)) || (q && store.getByName(nameKey(q)));
-    if (!p) throw new ApiError(404, 'NOT_FOUND', `「${q}」という名前は登録されていません`);
-    return p;
+    if (q && store.getPlayer(q)) return store.getPlayer(q);
+    const list = q ? store.allByName(nameKey(q)) : [];
+    if (!list.length) throw new ApiError(404, 'NOT_FOUND', `「${q}」という名前は登録されていません`);
+    if (list.length > 1) throw new ApiError(409, 'AMBIGUOUS', `「${q}」は${list.length}人います。一覧から選んでください`);
+    return list[0];
   }
 
   admin.get('/players', wrap((req) => {
@@ -347,7 +374,7 @@ export function createApp(cfg, db, { now = () => Date.now() } = {}) {
       const v = validateNickname(cfg, nickname);
       if (!v.ok) throw new ApiError(400, 'BAD_NICKNAME', v.error);
       const other = store.getByName(nameKey(v.nickname));
-      if (other && other.id !== p.id) throw new ApiError(409, 'NAME_TAKEN', 'その名前はほかの人が使っています');
+      if (!cfg.account.allowDuplicateNames && other && other.id !== p.id) throw new ApiError(409, 'NAME_TAKEN', 'その名前はほかの人が使っています');
       db.prepare('UPDATE players SET nickname = ?, name_key = ? WHERE id = ?').run(v.nickname, nameKey(v.nickname), p.id);
     }
     if (peakChips !== undefined) {

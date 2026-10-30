@@ -1,6 +1,6 @@
 // レバレッジピンボール（3球・1球30秒）
 /* global Matter */
-import { el, clear, fmt, multLabel } from '../ui.js';
+import { el, clear, fmt, multLabel, isTouch } from '../ui.js';
 import { PinballSim, W, H, BALL_R, LANE_X, LANE_WALL_X, scoreFor } from './pinball-table.js';
 
 const TIER_NAMES = { miss: '目標未達', target: '目標達成', high: '高得点', super: '超高得点' };
@@ -50,18 +50,22 @@ export default {
       ['target', cfg.targetScore, cfg.multipliers.target],
       ['miss', 0, cfg.multipliers.miss],
     ].map(([key, th, m]) => {
-      const row = el('div', { style: { display: 'flex', justifyContent: 'space-between', gap: '10px', padding: '8px 12px', borderRadius: '10px', background: 'rgba(255,255,255,.06)', fontSize: '17px' } },
+      const row = el('div.pb-tier', { style: { display: 'flex', justifyContent: 'space-between', gap: '10px', padding: '8px 12px', borderRadius: '10px', background: 'rgba(255,255,255,.06)', fontSize: '17px' } },
         el('span', TIER_NAMES[key]), el('span.num', th ? `${fmt(th)}〜` : ''), el('b.num', `${multLabel(m)}×${leverage}`));
       row.dataset.key = key;
       tierBox.append(row);
       return row;
     });
 
-    const hud = el('div.panel.col', { style: { width: '270px', gap: '14px' } },
-      el('div.muted', 'SCORE'), scoreEl, ballEl,
-      el('div.muted', 'この球の残り時間'), timeEl,
-      el('div.muted', '結果（倍率×レバレッジ）'), tierBox);
-    const help = el('div.panel.col', { style: { width: '230px', fontSize: '17px', gap: '10px' } },
+    const touch = isTouch();
+    const hud = el('div.panel.col.pb-hud', { style: { width: '270px', gap: '14px' } },
+      el('div.muted.pb-label', 'SCORE'), el('div.pb-score', scoreEl), ballEl,
+      el('div.muted.pb-label', 'この球の残り時間'), el('div.pb-time', timeEl),
+      el('div.muted.pb-label', '結果（倍率×レバレッジ）'), tierBox);
+    // スマホ用：台をゆらすボタンと操作説明
+    const nudgeBtn = el('button.btn.blue.pb-nudge', { on: { click: () => { if (phase === 'play') sim.nudge(); } } }, '📳 ゆらす');
+    const touchHelp = el('div.pb-touch-help', el('span', '◀ 左半分をタップ：左フリッパー'), el('span', '右半分をタップ：右フリッパー ▶'));
+    const help = el('div.panel.col.pb-help', { style: { width: '230px', fontSize: '17px', gap: '10px' } },
       el('b', '操作'),
       el('div', '左フリッパー：', el('b', 'Z'), ' / ←', el('br'), el('span.muted', '（左クリックでもOK）')),
       el('div', '右フリッパー：', el('b', '/'), ' / →', el('br'), el('span.muted', '（右クリックでもOK）')),
@@ -69,12 +73,14 @@ export default {
       el('div', '台をゆらす：プレイ中に', el('b', 'スペース'), el('br'), el('span.muted', '（ボールが止まったときに）')),
       el('div.muted', `${cfg.balls}球 × ${cfg.secondsPerBall}秒。発射後${BALL_SAVE_SEC}秒以内に落ちたら1回だけやり直し。`),
       el('div.muted', 'バンパー、上のレーン3つ、左のターゲット3つ、右のジャックポットで高得点！'));
-    clear(root, el('div.row', { style: { flex: 1, width: '100%', justifyContent: 'center', alignItems: 'stretch', gap: '18px', minHeight: 0 } },
-      hud, el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0 } }, canvas), help));
+    const layout = el('div.row.pb-layout', { style: { flex: 1, width: '100%', justifyContent: 'center', alignItems: 'stretch', gap: '18px', minHeight: 0 } },
+      hud, el('div.pb-canvas-wrap', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0 } }, canvas), help);
+    clear(root, layout, touch ? el('div.pb-touch-bar', touchHelp, nudgeBtn) : null);
 
     function resize() {
-      const availH = root.clientHeight - 30;
-      const availW = root.clientWidth - 270 - 230 - 80;
+      const narrow = window.innerWidth < 760;
+      const availH = narrow ? root.clientHeight - hud.offsetHeight - 70 : root.clientHeight - 30;
+      const availW = narrow ? root.clientWidth - 8 : root.clientWidth - 270 - 230 - 80;
       const scale = Math.max(0.3, Math.min(availH / H, availW / W));
       const dpr = window.devicePixelRatio || 1;
       canvas.style.width = W * scale + 'px';
@@ -123,7 +129,7 @@ export default {
       ballTime = cfg.secondsPerBall;
       readySince = frameCount;
       sim.ballSaveUsed = false;
-      showBanner(`BALL ${ballNo}`, 'スペース長押しで発射', 70);
+      showBanner(`BALL ${ballNo}`, touch ? '画面を長押しして離すと発射' : 'スペース長押しで発射', 70);
     }
 
     function endBall(reason) {
@@ -199,6 +205,35 @@ export default {
     const onBlur = () => { setFlipper('left', false); setFlipper('right', false); };
     window.addEventListener('blur', onBlur);
 
+    // タッチ操作：左半分＝左フリッパー、右半分＝右フリッパー。発射待ちのときは長押しで発射
+    const touchSide = new Map(); // touch.identifier -> 'left' | 'right' | 'launch'
+    const sidePressed = (side) => [...touchSide.values()].includes(side);
+    const onTouchStart = (e) => {
+      if (e.target.closest('button')) return;
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (phase === 'ready') {
+          touchSide.set(t.identifier, 'launch');
+          if (!charging) { charging = true; charge = 0; }
+          continue;
+        }
+        const side = t.clientX < window.innerWidth / 2 ? 'left' : 'right';
+        touchSide.set(t.identifier, side);
+        setFlipper(side, true);
+      }
+    };
+    const onTouchEnd = (e) => {
+      for (const t of e.changedTouches) {
+        const side = touchSide.get(t.identifier);
+        touchSide.delete(t.identifier);
+        if (side === 'left' || side === 'right') { if (!sidePressed(side)) setFlipper(side, false); }
+        if (side === 'launch' && !sidePressed('launch') && charging) doLaunch();
+      }
+    };
+    root.addEventListener('touchstart', onTouchStart, { passive: false });
+    root.addEventListener('touchend', onTouchEnd);
+    root.addEventListener('touchcancel', onTouchEnd);
+
     // ---------- ループ ----------
     let last = performance.now();
     let acc = 0;
@@ -260,6 +295,7 @@ export default {
         const tier = scoreFor(sim.score, cfg);
         for (const row of tiers) {
           const on = row.dataset.key === tier;
+          row.classList.toggle('on', on);
           row.style.background = on ? (tier === 'miss' ? 'rgba(255,77,94,.35)' : 'rgba(246,196,83,.35)') : 'rgba(255,255,255,.06)';
           row.style.outline = on ? '2px solid ' + (tier === 'miss' ? 'var(--red)' : 'var(--gold)') : 'none';
         }
@@ -578,6 +614,9 @@ export default {
       window.removeEventListener('mouseup', onMouseUp);
       window.removeEventListener('contextmenu', onCtx);
       window.removeEventListener('blur', onBlur);
+      root.removeEventListener('touchstart', onTouchStart);
+      root.removeEventListener('touchend', onTouchEnd);
+      root.removeEventListener('touchcancel', onTouchEnd);
       window.removeEventListener('resize', resize);
       Matter.Engine.clear(sim.engine);
     };

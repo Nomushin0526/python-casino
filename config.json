@@ -15,7 +15,8 @@
   },
 
   "account": {
-    "_comment": "新規登録とログインに使うパスワードの長さ",
+    "_comment": "allowDuplicateNames: true なら同じ名前でも登録できる（ログインは名前＋パスワードで区別）。minLength/maxLength: パスワードの長さ",
+    "allowDuplicateNames": true,
     "minLength": 4,
     "maxLength": 16
   },

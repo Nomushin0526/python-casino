@@ -49,7 +49,8 @@ export function openDb(file) {
   const cols = db.prepare('PRAGMA table_info(players)').all().map((c) => c.name);
   if (!cols.includes('name_key')) db.exec('ALTER TABLE players ADD COLUMN name_key TEXT');
   if (!cols.includes('password_hash')) db.exec('ALTER TABLE players ADD COLUMN password_hash TEXT');
-  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_players_name ON players(name_key)');
+  // 同じ名前の登録を許可する設定にも対応できるよう、名前の索引は重複OKにする
+  db.exec('DROP INDEX IF EXISTS idx_players_name; CREATE INDEX IF NOT EXISTS idx_players_namekey ON players(name_key)');
   return db;
 }
 
@@ -72,7 +73,7 @@ export class Store {
     this.s = {
       get: q('SELECT * FROM players WHERE id = ?'),
       insert: q('INSERT INTO players (id, nickname, name_key, password_hash, easy_mode, chips, peak_chips) VALUES (?, ?, ?, ?, ?, ?, ?)'),
-      byName: q('SELECT * FROM players WHERE name_key = ?'),
+      byName: q('SELECT * FROM players WHERE name_key = ? ORDER BY created_at'),
       setChips: q(`UPDATE players SET chips = ?, peak_chips = MAX(peak_chips, ?), losscut_count = losscut_count + ?, updated_at = ${NOW} WHERE id = ?`),
       addTx: q(`INSERT INTO transactions (player_id, game, bet, leverage, multiplier, delta, balance_after, detail, terminal)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
@@ -85,14 +86,19 @@ export class Store {
     return this.s.get.get(id) || null;
   }
 
+  // 同じ名前の人を全員返す（同名登録を許可している場合は複数いることがある）
+  allByName(key) {
+    return this.s.byName.all(key);
+  }
+
   getByName(key) {
     return this.s.byName.get(key) || null;
   }
 
-  // 新規登録。同じ名前があれば null
-  createPlayer({ id, nickname, nameKey, passwordHash, easyMode = false, initialChips, terminal = null }) {
+  // 新規登録。unique のとき同じ名前があれば null
+  createPlayer({ id, nickname, nameKey, passwordHash, easyMode = false, initialChips, terminal = null, unique = true }) {
     return tx(this.db, () => {
-      if (this.getByName(nameKey)) return null;
+      if (unique && this.getByName(nameKey)) return null;
       this.s.insert.run(id, nickname, nameKey, passwordHash, easyMode ? 1 : 0, initialChips, initialChips);
       this.s.addTx.run(id, 'initial', null, null, null, initialChips, initialChips, null, terminal);
       return this.getPlayer(id);

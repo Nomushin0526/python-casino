@@ -63,13 +63,16 @@ export function multLabel(m) {
 }
 
 // トランプ1枚
+// スマホでは --card-scale でカードを小さくする（早見表のミニカードは対象外）
+const cw = (size) => (size ? { '--cw': size <= 34 ? size + 'px' : `calc(var(--card-scale, 1) * ${size}px)` } : null);
+
 export function cardEl(c, { back = false, cls = '', size } = {}) {
-  if (back || !c) return el('div.pcard.back', { class: cls, style: size ? { '--cw': size + 'px' } : null });
+  if (back || !c) return el('div.pcard.back', { class: cls, style: cw(size) });
   if (c.joker && size && size <= 34) {
     return el('div.pcard.mini.joker', { class: cls, style: { '--cw': size + 'px' } }, el('div.mr', '★'), el('div.ms', 'JK'));
   }
   if (c.joker) {
-    return el('div.pcard.joker', { class: cls, style: size ? { '--cw': size + 'px' } : null },
+    return el('div.pcard.joker', { class: cls, style: cw(size) },
       el('div.tl', '★'), el('div.mid', 'JOKER'), el('div.br', '★'));
   }
   const red = c.s === 'H' || c.s === 'D';
@@ -79,13 +82,13 @@ export function cardEl(c, { back = false, cls = '', size } = {}) {
     // 早見表用のミニカード（数字とマークだけ）
     return el('div.pcard.mini', { class: (red ? 'red ' : '') + cls, style: { '--cw': size + 'px' } }, el('div.mr', r), el('div.ms', s));
   }
-  return el('div.pcard', { class: (red ? 'red ' : '') + cls, style: size ? { '--cw': size + 'px' } : null },
+  return el('div.pcard', { class: (red ? 'red ' : '') + cls, style: cw(size) },
     el('div.tl', r, el('i', s)), el('div.mid', s), el('div.br', r, el('i', s)));
 }
 
 // 花札1枚（自作の簡易デザイン：月の色＋月名＋種類）
 export function hanaEl(id, { back = false, cls = '', size } = {}) {
-  const style = size ? { '--hw': size + 'px' } : {};
+  const style = size ? { '--hw': size <= 34 || cls.includes('small') ? size + 'px' : `calc(var(--hana-scale, 1) * ${size}px)` } : {};
   if (back) return el('div.hana.back', { class: cls, style });
   const c = hanaById[id];
   const month = MONTHS[c.month];
@@ -219,10 +222,17 @@ export function gameLayout(root, title = '早見表') {
   root.classList.add('with-side');
   const main = el('div.game-main');
   const body = el('div.side-body');
-  const side = el('aside.side-panel', el('div.side-title', '📖 ', title), body);
-  clear(root, main, side);
+  // スマホでは早見表を下から引き出すパネルにする
+  const toggle = () => root.classList.toggle('side-open');
+  const side = el('aside.side-panel',
+    el('div.side-title', { on: { click: toggle } }, '📖 ', title, el('span.side-close', '✕ 閉じる')), body);
+  const btn = el('button.side-toggle', { on: { click: toggle } }, '📖 早見表');
+  clear(root, main, side, btn);
   return { main, side: body };
 }
+
+// タッチ操作の端末か（スマホ・タブレット）
+export const isTouch = () => window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 
 // 早見表の1行（タイトル・説明・カードの絵）
 export function sideRow({ title, desc, visual, note, cls = '' }) {

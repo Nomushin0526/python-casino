@@ -1,0 +1,168 @@
+/* =========================================================
+   スマホ・タブレット対応（幅 760px 以下）
+   ========================================================= */
+html { -webkit-text-size-adjust: 100%; }
+button, a, .game-card, .pcard, .hana, .toggle { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+
+/* タッチ端末ではキーボードのヒントを出さない */
+@media (hover: none) and (pointer: coarse) {
+  .btn kbd { display: none; }
+  .pb-touch-bar { display: flex; }
+  .pb-help { display: none !important; }
+}
+
+@media (max-width: 760px) {
+  :root { --card-scale: .62; --hana-scale: .68; }
+  body { overflow: hidden; }
+
+  /* ---------- 上のバー ---------- */
+  #topbar { height: 50px; flex-basis: 50px; gap: 8px; padding: 0 10px; }
+  #topbar .logo { font-size: 15px; letter-spacing: 0; white-space: nowrap; }
+  #topbar .who { font-size: 13px; max-width: 26vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #topbar .chips { font-size: 19px; }
+  #topbar .chips::before { width: 14px; height: 14px; margin-right: 4px; }
+  #topbar .bet-info, #topbar .toggle { display: none; }
+  #topbar .btn.small { padding: 6px 9px; font-size: 13px; white-space: nowrap; }
+  #topbar .chips { white-space: nowrap; }
+  #topbar:has(.who) .logo { display: none; }
+  #toast { bottom: 70px; width: calc(100% - 20px); }
+  #toast div { font-size: 15px; }
+
+  .screen { padding: 12px 10px 18px; justify-content: flex-start; }
+  .panel { padding: 14px; }
+  h1 { font-size: 30px; }
+  h2 { font-size: 22px; }
+  .btn { padding: 12px 16px; font-size: 17px; }
+  .btn.big { padding: 14px 20px; font-size: 20px; }
+
+  /* ---------- トップ・登録 ---------- */
+  .standby { justify-content: center; gap: 14px; }
+  .standby .title { font-size: clamp(38px, 13vw, 64px); letter-spacing: .04em; text-align: center; }
+  .standby .sub { font-size: 17px; text-align: center; }
+  .entry-buttons { flex-direction: column; gap: 14px; width: 100%; align-items: center; }
+  .entry-btn { width: 100%; max-width: 360px; padding: 16px 14px; }
+  .entry-icon { font-size: 30px; }
+  .entry-main { font-size: 30px; }
+  .entry-sub { font-size: 14px; }
+  .top3 { flex-wrap: wrap; justify-content: center; font-size: 14px; gap: 6px; }
+  .deco-chip { width: 46px; height: 46px; }
+  .chips-float { font-size: 26px; }
+  .auth-panel { width: 100%; }
+  .auth-input { font-size: 20px !important; }
+
+  /* ---------- メッセージ・ゲーム選択 ---------- */
+  .msgbox { font-size: 17px; }
+  .menu { padding-top: 12px; }
+  .menu-head { flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .menu-head h2 { font-size: 22px; width: 100%; }
+  .game-grid { grid-template-columns: 1fr; gap: 10px; }
+  .game-card { min-height: 0; padding: 12px 14px; display: grid; grid-template-columns: 52px 1fr; column-gap: 12px; align-items: center; }
+  .game-card .icon { font-size: 38px; grid-row: span 3; }
+  .game-card .name { font-size: 19px; margin: 0; }
+  .game-card .desc { font-size: 13px; }
+  .game-card .odds { font-size: 11px; grid-column: 2; }
+  .game-card .tag { top: 8px; right: 8px; font-size: 11px; }
+
+  /* ---------- 賭け設定 ---------- */
+  .bet-amount { font-size: 54px; }
+  .bet-amount small { font-size: 18px; }
+  .bet-row .btn { padding: 10px 12px; font-size: 15px; }
+  .lev-row .btn { min-width: 68px; font-size: 20px; }
+  .risk { grid-template-columns: 1fr; gap: 6px; }
+  .risk > div { font-size: 15px; padding: 8px 12px; }
+  .risk b { font-size: 22px; }
+
+  /* ---------- ルール ---------- */
+  .rules-box { font-size: 15px; }
+  .rules-box [style*="grid-template-columns"], .rules-box .yaku-grid { grid-template-columns: 1fr !important; }
+  .rules-box td, .rules-box th { white-space: normal; }
+  .rules-box > .row, .rules-box div > .row { flex-wrap: wrap; }
+  .rules-box .btn.small { padding: 6px 10px; font-size: 13px; }
+  .overlay .panel { max-width: calc(100vw - 20px); }
+  .overlay .panel.col { min-width: 0 !important; }
+  .overlay .count { font-size: 64px; }
+
+  /* ---------- 結果・ロスカット ---------- */
+  .result .label { font-size: 26px; }
+  .result .delta { font-size: 72px; }
+  .result .formula { font-size: 14px; }
+  .result .now { font-size: 22px; }
+  .result .stamp { font-size: 40px; }
+  .losscut .lc-title { font-size: 60px; }
+  .losscut .lc-sub { font-size: 18px; text-align: center; }
+  .losscut .lc-chart { width: 100%; height: 110px; }
+  .tape { height: 38px; font-size: 16px; }
+
+  /* ---------- ゲーム共通 ---------- */
+  .game-screen { padding: 6px 6px 10px; overflow-y: auto; }
+  .game-screen.with-side { flex-direction: column; }
+  .table-felt { border-width: 6px; padding: 8px !important; }
+  .table-felt::before { font-size: 22px; }
+  .status-line { font-size: 16px !important; min-height: 24px; }
+  .actions { gap: 8px; }
+  .actions .btn.big { padding: 12px 14px; font-size: 17px; }
+  .easy-label { font-size: 10px; }
+  .timer-bar { width: 160px; }
+  .big-banner { font-size: 44px; }
+
+  /* 早見表は下から引き出すパネル */
+  .side-panel {
+    position: fixed; left: 0; right: 0; bottom: 0; width: auto; height: 72vh; z-index: 80;
+    border-radius: 18px 18px 0 0; transform: translateY(105%); transition: transform .25s ease;
+    box-shadow: 0 -10px 40px rgba(0,0,0,.6);
+    background: linear-gradient(180deg, #2a1748, #120f28);
+  }
+  .with-side.side-open .side-panel { transform: none; }
+  .side-title { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .side-close { display: inline; margin-left: auto; font-size: 13px; color: var(--muted); font-weight: 700; }
+  .side-toggle {
+    display: block; position: fixed; right: 10px; bottom: 12px; z-index: 70;
+    border: 1px solid rgba(246,196,83,.6); border-radius: 999px; padding: 9px 14px; font-weight: 800; font-size: 14px;
+    color: var(--gold); background: rgba(30,18,55,.92); box-shadow: 0 4px 16px rgba(0,0,0,.5);
+  }
+  .with-side.side-open .side-toggle { display: none; }
+
+  /* ---------- ホールデム ---------- */
+  .he-cpus { gap: 6px !important; }
+  .he-seat { min-width: 0 !important; padding: 5px 6px !important; font-size: 12px; }
+  .he-seat .muted { font-size: 11px !important; }
+  .he-me { flex-direction: column; gap: 8px !important; }
+  .he-actions { min-width: 0 !important; width: 100%; }
+  .he-actions .btn.small { padding: 7px 9px; font-size: 13px; }
+
+  /* ---------- 大富豪 ---------- */
+  .df-table { grid-template-columns: repeat(3, 1fr); grid-template-rows: auto 1fr; padding: 6px; gap: 4px; }
+  .df-cpu-top, .df-cpu-left, .df-cpu-right { grid-row: 1; grid-column: auto; justify-content: center; }
+  .df-cpu-left { order: -1; }
+  .df-field { grid-column: 1 / -1; grid-row: 2; }
+  .df-cpu-panel { min-width: 0 !important; width: 100%; padding: 5px !important; font-size: 12px; gap: 2px !important; }
+  .df-cpu-panel .cards.overlap .pcard + .pcard { margin-left: -24px; }
+  .df-hand { width: 100%; justify-content: center; }
+  .df-hand .pcard { --cw: 50px !important; }
+  .df-hand { gap: 0 !important; }
+  .df-hand .pcard + .pcard { margin-left: calc(var(--cw) * -.56); }
+  .cards.overlap .pcard.selected, .df-hand .pcard.selected { transform: translateY(-14px); }
+
+  /* ---------- 花札 ---------- */
+  .hana.small { --hw: 26px; }
+  .kk-hand { flex-wrap: wrap; gap: 5px !important; }
+  .kk-hand .hana { --hw: 44px !important; }
+
+  /* ---------- ピンボール ---------- */
+  .pb-layout { flex-direction: column; align-items: center !important; gap: 6px !important; }
+  .pb-hud { width: 100% !important; flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 4px 12px !important; padding: 8px 12px !important; }
+  .pb-hud .pb-label { display: none; }
+  .pb-hud .pb-score > div { font-size: 30px !important; }
+  .pb-hud .pb-time > div { font-size: 22px !important; }
+  .pb-hud > div:nth-child(3) { font-size: 15px !important; }
+  .pb-hud .col { flex-direction: row; flex-wrap: wrap; gap: 4px !important; width: 100%; }
+  .pb-tier { display: none !important; font-size: 12px !important; padding: 3px 8px !important; }
+  .pb-tier.on { display: flex !important; }
+  .pb-help { display: none !important; }
+  .pb-canvas-wrap { touch-action: none; }
+}
+
+/* タッチ端末のピンボール操作バー */
+.pb-touch-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(10,8,25,.85); font-size: 12px; color: var(--muted); }
+.pb-touch-bar > div { display: flex; flex-direction: column; }
+.pb-nudge { padding: 10px 16px; font-size: 16px; }

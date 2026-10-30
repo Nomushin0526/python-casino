@@ -123,7 +123,7 @@ export default {
     }
 
     // ---------- 画面 ----------
-    const seatEls = table.seats.map(() => el('div.panel.col', { style: { padding: '8px 12px', gap: '4px', alignItems: 'center', minWidth: '160px', transition: 'box-shadow .2s' } }));
+    const seatEls = table.seats.map(() => el('div.panel.col.he-seat', { style: { padding: '8px 12px', gap: '4px', alignItems: 'center', minWidth: '160px', transition: 'box-shadow .2s' } }));
     const board = el('div.cards', { style: { '--cw': '62px', minHeight: '87px' } });
     const potEl = el('div.num', { style: { fontSize: '26px', fontWeight: 900, color: 'var(--gold)' } });
     const info = el('div.status-line');
@@ -139,15 +139,15 @@ export default {
     let nextResolve = null;
     const timer = turnTimer(timerHost, TURN_SEC, () => human({ type: table.legal(0).canCheck ? 'check' : 'fold' }));
 
-    const top = el('div.row', { style: { justifyContent: 'center', gap: '18px' } }, ...seatEls.slice(1));
+    const top = el('div.row.he-cpus', { style: { justifyContent: 'center', gap: '18px' } }, ...seatEls.slice(1));
     clear(main,
       el('div.row', { style: { width: '100%', justifyContent: 'space-between' } }, handNoEl, stageEl, el('div.muted', `参加料 ${sb}/${bb}`)),
       el('div.table-felt.col', { style: { width: '100%', flex: 1, padding: '10px 14px', alignItems: 'center', justifyContent: 'space-between', minHeight: 0, gap: '6px' } },
         top,
         el('div.col', { style: { alignItems: 'center', gap: '4px' } }, el('div', '場に集まったチップ ', potEl), board, info),
-        el('div.row', { style: { gap: '16px', alignItems: 'center' } },
+        el('div.row.he-me', { style: { gap: '16px', alignItems: 'center' } },
           seatEls[0],
-          el('div.col', { style: { alignItems: 'center', gap: '8px', minWidth: '400px' } }, actions, nextBtn, timerHost))));
+          el('div.col.he-actions', { style: { alignItems: 'center', gap: '8px', minWidth: '400px' } }, actions, nextBtn, timerHost))));
 
     function renderSeat(i) {
       const s = table.seats[i];

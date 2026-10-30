@@ -56,3 +56,4 @@ body.ranking { overflow: hidden; }
 .feed b { color: var(--green); font-family: var(--num); }
 .rank-foot { font-size: 2vh; color: var(--muted); display: flex; justify-content: space-between; }
 .empty { font-size: 3vh; color: var(--muted); text-align: center; padding: 6vh; }
+#join b { color: var(--gold); font-family: var(--num); font-size: 2.6vh; }

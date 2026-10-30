@@ -109,8 +109,8 @@ export default {
     }
 
     // ---------- 画面 ----------
-    const handEl = el('div.cards', { style: { '--cw': '64px', flexWrap: 'nowrap' } });
-    const fieldEl = el('div.cards', { style: { '--cw': '78px', minHeight: '115px' } });
+    const handEl = el('div.cards.df-hand', { style: { flexWrap: 'nowrap' } });
+    const fieldEl = el('div.cards', { style: { minHeight: 'calc(var(--card-scale, 1) * 115px)' } });
     const fieldInfo = el('div.status-line');
     const revoEl = el('div', { style: { fontSize: '20px', fontWeight: 900, color: 'var(--red)', minHeight: '28px' } });
     const banner = el('div.big-banner');
@@ -118,15 +118,15 @@ export default {
     const timerHost = el('div', { style: { height: '22px' } });
     const btnPlay = el('button.btn.big', { on: { click: () => tryPlay() } }, '選んだカードを出す', el('kbd', 'Enter'));
     const btnPass = el('button.btn.big.secondary', { on: { click: () => doPass() } }, 'パス（出さない）', el('kbd', 'P'));
-    const cpuEls = [1, 2, 3].map(() => el('div.panel.col', { style: { padding: '10px 12px', alignItems: 'center', gap: '6px', minWidth: '150px' } }));
+    const cpuEls = [1, 2, 3].map(() => el('div.panel.col.df-cpu-panel', { style: { padding: '10px 12px', alignItems: 'center', gap: '6px', minWidth: '150px' } }));
     const timer = turnTimer(timerHost, TURN_SEC, () => autoPlay());
 
     clear(main,
-      el('div.table-felt', { style: { position: 'relative', width: '100%', flex: 1, padding: '12px', display: 'grid', gridTemplateColumns: '170px 1fr 170px', gridTemplateRows: 'auto 1fr', gap: '8px', minHeight: 0 } },
-        el('div', { style: { gridColumn: '2', display: 'flex', justifyContent: 'center' } }, cpuEls[1]),
-        el('div', { style: { gridColumn: '1', gridRow: '2', display: 'flex', alignItems: 'center' } }, cpuEls[0]),
-        el('div.col', { style: { gridColumn: '2', gridRow: '2', alignItems: 'center', justifyContent: 'center' } }, revoEl, fieldEl, fieldInfo),
-        el('div', { style: { gridColumn: '3', gridRow: '2', display: 'flex', alignItems: 'center' } }, cpuEls[2]),
+      el('div.table-felt.df-table',
+        el('div.df-cpu.df-cpu-top', cpuEls[1]),
+        el('div.df-cpu.df-cpu-left', cpuEls[0]),
+        el('div.col.df-field', revoEl, fieldEl, fieldInfo),
+        el('div.df-cpu.df-cpu-right', cpuEls[2]),
         banner),
       el('div.col', { style: { alignItems: 'center', gap: '8px', marginTop: '10px', width: '100%' } },
         msg, handEl, el('div.actions', btnPass, btnPlay), timerHost));
@@ -159,7 +159,7 @@ export default {
       const ok = playableIds();
       handEl.replaceChildren(...game.hands[0].map((c) => {
         const id = cardId(c);
-        const node = cardEl(c, { cls: `selectable ${selected.has(id) ? 'selected' : ''} ${waiting && !ok.has(id) ? 'dim' : ''}` });
+        const node = cardEl(c, { size: 64, cls: `selectable ${selected.has(id) ? 'selected' : ''} ${waiting && !ok.has(id) ? 'dim' : ''}` });
         node.addEventListener('click', () => {
           if (!waiting) return;
           selected.has(id) ? selected.delete(id) : selected.add(id);
@@ -184,7 +184,7 @@ export default {
       });
       if (game.field) {
         const key = game.field.cards.map(cardId).join();
-        fieldEl.replaceChildren(...game.field.cards.map((c) => cardEl(c, { cls: key !== lastFieldKey ? 'flip' : '' })));
+        fieldEl.replaceChildren(...game.field.cards.map((c) => cardEl(c, { size: 78, cls: key !== lastFieldKey ? 'flip' : '' })));
         lastFieldKey = key;
         fieldInfo.textContent = `${NAMES[game.field.by]} が ${playLabel(game.field)}出し`;
       } else {

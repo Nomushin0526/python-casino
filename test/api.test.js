@@ -35,16 +35,25 @@ test('新規登録：初期チップ・同じ名前は使えない・NGワード
   assert.equal(r.status, 200);
   assert.equal(r.body.player.chips, 100);
   assert.equal(r.body.player.nickname, 'たろう');
+  // 同じ名前＋同じパスワードは区別できないので登録できない（空白・全角半角・大小文字の違いも同じ名前）
   assert.equal((await reg('たろう', 'B')).status, 409);
-  assert.equal((await reg(' たろう ', 'B')).status, 409); // 前後の空白は同じ名前
+  assert.equal((await reg(' たろう ', 'B')).status, 409);
   assert.equal((await reg('ＡＢＣ', 'B')).status, 200);
-  assert.equal((await reg('abc', 'C')).status, 409); // 全角/半角・大文字/小文字の違いは同じ名前
+  assert.equal((await reg('abc', 'C')).status, 409);
+  // パスワードが違えば同じ名前でも登録できる
+  const t2 = await reg('たろう', 'E', 'other-pw');
+  assert.equal(t2.status, 200);
+  assert.notEqual(t2.body.player.id, r.body.player.id);
   assert.equal((await reg('バカ太郎', 'B')).status, 400);
   assert.equal((await reg('12345678901', 'B')).status, 400);
   assert.equal((await reg('みじかい', 'B', '123')).status, 400);
   assert.equal((await reg('ぜんかく', 'B', 'ぱすわーど')).status, 400);
   const chk = await get(`/api/name-check?name=${encodeURIComponent('たろう')}`);
-  assert.equal(chk.body.ok, false);
+  assert.equal(chk.body.ok, true);
+  assert.equal(chk.body.same, true);
+  // ログインはパスワードで本人を区別する
+  await post('/api/logout', { playerId: t2.body.player.id, token: t2.body.token });
+  assert.equal((await login('たろう', 'F', 'other-pw')).body.player.id, t2.body.player.id);
   assert.equal((await get(`/api/name-check?name=${encodeURIComponent('じろう')}`)).body.ok, true);
 });
 
@@ -144,8 +153,8 @@ test('管理画面：VRボーナス1日1回・復活・取消・パスワード�
   // パスワード再設定
   assert.equal((await post(`/api/admin/players/${hanako}/password`, { password: 'new-pass' }, h)).status, 200);
   assert.equal((await login('はなこ', 'D', 'pass1234')).status, 401);
-  // 名前の変更（ほかの人の名前は使えない）
-  assert.equal((await post(`/api/admin/players/${hanako}/update`, { nickname: 'さぶろう' }, h)).status, 409);
+  // 同じ名前が2人いると名前では特定できない
+  assert.equal((await get(`/api/admin/players/${encodeURIComponent('たろう')}`, h)).status, 409);
   assert.equal((await post(`/api/admin/players/${hanako}/update`, { nickname: 'はなこ2' }, h)).status, 200);
   assert.equal((await post(`/api/admin/players/${encodeURIComponent('はなこ2')}/unlock`, {}, h)).status, 200);
   assert.equal((await login('はなこ2', 'D', 'new-pass')).status, 200);

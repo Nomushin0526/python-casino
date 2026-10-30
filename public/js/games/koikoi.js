@@ -80,7 +80,7 @@ export default {
     const fieldEl = el('div.row.wrap', { style: { gap: '8px', justifyContent: 'center', maxWidth: '760px', minHeight: '220px', alignContent: 'center' } });
     const deckEl = el('div.col', { style: { alignItems: 'center', gap: '4px' } });
     const myCap = el('div.row.wrap', { style: { gap: '3px', minHeight: '58px' } });
-    const myHand = el('div.row', { style: { gap: '8px', justifyContent: 'center' } });
+    const myHand = el('div.row.kk-hand', { style: { gap: '8px', justifyContent: 'center' } });
     const scoreEl = el('div', { style: { fontSize: '20px', fontWeight: 800 } });
     const msg = el('div.status-line');
     const myYaku = el('div.muted', { style: { minHeight: '22px' } });

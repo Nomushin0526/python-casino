@@ -230,8 +230,8 @@ function showAuthForm(mode) {
         try {
           const r = await request('GET', `/api/name-check?name=${encodeURIComponent(name)}`);
           if (seq !== checkSeq) return;
-          nameMsg.className = 'field-msg ' + (r.ok ? 'ok' : 'ng');
-          nameMsg.textContent = (r.ok ? '✓ ' : '✗ ') + r.message;
+          nameMsg.className = 'field-msg ' + (!r.ok ? 'ng' : r.same ? 'same' : 'ok');
+          nameMsg.textContent = (!r.ok ? '✗ ' : r.same ? '！ ' : '✓ ') + r.message;
         } catch { /* ignore */ }
       }, 300);
     });

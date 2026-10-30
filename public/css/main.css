@@ -190,7 +190,7 @@ input[type=range] { width: 100%; accent-color: var(--gold); height: 30px; }
 
 /* ---------- トランプ ---------- */
 .pcard {
-  --cw: 84px;
+  --cw: calc(var(--card-scale, 1) * 84px);
   width: var(--cw); height: calc(var(--cw) * 1.4); border-radius: calc(var(--cw) * .1);
   background: linear-gradient(160deg, #ffffff, #ece7da); color: #161616; position: relative; flex: 0 0 auto;
   box-shadow: 0 3px 8px rgba(0,0,0,.45); font-family: var(--num); font-weight: 800;
@@ -220,7 +220,7 @@ input[type=range] { width: 100%; accent-color: var(--gold); height: 30px; }
 
 /* ---------- 花札 ---------- */
 .hana {
-  --hw: 64px;
+  --hw: calc(var(--hana-scale, 1) * 64px);
   width: var(--hw); height: calc(var(--hw) * 1.6); border-radius: 6px; position: relative; flex: 0 0 auto;
   background: #1b1b1b; border: 3px solid #e9e1cf; box-shadow: 0 3px 8px rgba(0,0,0,.5); overflow: hidden; color: #fff;
   display: inline-flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 4px 2px; transition: transform .15s, box-shadow .15s;
@@ -273,3 +273,11 @@ input[type=range] { width: 100%; accent-color: var(--gold); height: 30px; }
 .strength-line { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; }
 .strength-line .lt { color: var(--muted); font-size: 11px; }
 .easy-label { display: block; font-size: 11px; font-weight: 700; opacity: .85; margin-top: 2px; }
+
+/* 大富豪のテーブル配置 */
+.df-table { position: relative; width: 100%; flex: 1; padding: 12px; display: grid; grid-template-columns: 170px 1fr 170px; grid-template-rows: auto 1fr; gap: 8px; min-height: 0; }
+.df-cpu-top { grid-column: 2; display: flex; justify-content: center; }
+.df-cpu-left { grid-column: 1; grid-row: 2; display: flex; align-items: center; }
+.df-cpu-right { grid-column: 3; grid-row: 2; display: flex; align-items: center; }
+.df-field { grid-column: 2; grid-row: 2; align-items: center; justify-content: center; }
+.side-toggle, .side-close, .pb-touch-bar { display: none; }

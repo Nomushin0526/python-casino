@@ -26,6 +26,8 @@ async function load() {
       ? r.recentBig.map((b) => el('div', `${b.at.slice(11, 16)}　${b.nickname} さんが ${b.game}${b.leverage > 1 ? `（×${b.leverage}）` : ''}で `, el('b', `+${fmt(b.delta)}`)))
       : el('div.muted', '—'));
     prev = new Map(r.ranking.map((p) => [p.nickname, p.peakChips]));
+    const join = document.getElementById('join');
+    if (r.joinUrl) clear(join, '📱 スマホでも遊べる！ 会場Wi-Fiにつないで ', el('b', r.joinUrl));
     document.getElementById('updated').textContent = `最終更新 ${new Date().toLocaleTimeString('ja-JP')}`;
   } catch (e) {
     document.getElementById('updated').textContent = `更新失敗（${e.message}）`;
